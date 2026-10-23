@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1b33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Metelik Cüzdan</title>
+<style>
+:root{--bg:#0f1b33;--card:#16264a;--line:#243659;--cream:#f3ead2;--gold:#d9a93b;--mute:#8b98b8;--red:#e5736b;--green:#6cc08b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding-bottom:84px}
+main{max-width:520px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 12px;color:var(--gold)}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mute{color:var(--mute);font-size:13px}
+.in{color:var(--green)}.out{color:var(--red)}
+.big{font-size:26px;font-weight:700}
+.bar{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold)}
+nav{position:fixed;left:0;right:0;bottom:0;background:#0b1428;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:var(--mute);padding:14px 0;font-size:14px}
+nav button.on{color:var(--gold);font-weight:600}
+.fab{position:fixed;right:18px;bottom:78px;width:56px;height:56px;border-radius:50%;border:0;background:var(--gold);color:var(--bg);font-size:30px;font-weight:700}
+.sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end}
+.sheet.show{display:flex}
+.sheet form{background:var(--bg);width:100%;max-width:520px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px;max-height:92vh;overflow:auto}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--cream);font-size:16px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--mute)}
+.seg button.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:600}
+.btn{width:100%;padding:13px;border-radius:12px;border:0;background:var(--gold);color:var(--bg);font-size:16px;font-weight:700;margin-top:14px}
+.btn.alt{background:var(--card);color:var(--cream);border:1px solid var(--line)}
+.del{background:none;border:0;color:var(--mute);font-size:18px;padding:4px 8px}
+.month{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.month button{background:var(--card);border:1px solid var(--line);color:var(--cream);border-radius:10px;padding:6px 14px;font-size:18px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<button class="fab" id="fab" aria-label="İşlem ekle">+</button>
+<nav id="nav"></nav>
+<div class="sheet" id="sheet"><form id="form"></form></div>
+
+<script>
+const KATEGORI={gider:['Market','Yemek','Fatura','Ulaşım','Kira','Sağlık','Eğlence','Alışveriş','Kahve','Diğer'],gelir:['Maaş','Ek gelir','Diğer']};
+const TIP={nakit:'Nakit',banka:'Banka',kart:'Kredi kartı'};
+let S={accounts:[],tx:[]},tab='ozet',month=new Date().toISOString().slice(0,7);
+
+/* --- depolama (IndexedDB) --- */
+const db=new Promise((res,rej)=>{let r;try{r=indexedDB.open('metelik',1)}catch(e){return rej(e)}r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+db.catch(()=>{});
+async function load(){try{const d=await db;return await new Promise(res=>{const q=d.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch{return null}}
+async function save(){try{const d=await db;d.transaction('kv','readwrite').objectStore('kv').put(JSON.parse(JSON.stringify(S)),'state')}catch{}}
+
+/* --- yardımcılar --- */
+const $=s=>document.querySelector(s);
+const id=()=>Math.random().toString(36).slice(2,10);
+const today=()=>new Date().toISOString().slice(0,10);
+const tl=k=>(k/100).toLocaleString('tr-TR',{style:'currency',currency:'TRY'});
+const toKurus=v=>Math.round(parseFloat(String(v).replace(',','.'))*100);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const acc=i=>S.accounts.find(a=>a.id===i);
+function addMonths(ds,n){const [y,m,d]=ds.split('-').map(Number);const t=new Date(Date.UTC(y,m-1+n,1));const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();t.setUTCDate(Math.min(d,last));return t.toISOString().slice(0,10)}
+function monthLabel(m){const [y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleDateString('tr-TR',{month:'long',year:'numeric'})}
+/* bakiye: opening + gelir - gider + transfer; yalnız bugüne kadar olanlar. Kartta negatif = borç */
+function delta(t,a){if(t.type==='gelir'&&t.acc===a)return t.amount;if(t.type==='gider'&&t.acc===a)return -t.amount;if(t.type==='transfer'){if(t.acc===a)return -t.amount;if(t.to===a)return t.amount}return 0}
+function balance(a,untilToday=true){return (acc(a).opening||0)+S.tx.filter(t=>!untilToday||t.date<=today()).reduce((s,t)=>s+delta(t,a),0)}
+function futureInstallments(a){return S.tx.filter(t=>t.acc===a&&t.type==='gider'&&t.date>today()).reduce((s,t)=>s+t.amount,0)}
+
+/* --- görünümler --- */
+function render(){
+  $('#nav').innerHTML=[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('');
+  $('#fab').style.display=tab==='ayar'?'none':'block';
+  $('#app').innerHTML=({ozet,islem,hesap,ayar})[tab]();
+}
+function monthBar(){return `<div class="month"><button data-m="-1">‹</button><b>${monthLabel(month)}</b><button data-m="1">›</button></div>`}
+const inMonth=()=>S.tx.filter(t=>t.date.startsWith(month));
+
+function ozet(){
+  const m=inMonth(),gelir=m.filter(t=>t.type==='gelir').reduce((s,t)=>s+t.amount,0),gider=m.filter(t=>t.type==='gider').reduce((s,t)=>s+t.amount,0);
+  const cats={};m.filter(t=>t.type==='gider').forEach(t=>cats[t.cat]=(cats[t.cat]||0)+t.amount);
+  const cl=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const varlik=S.accounts.filter(a=>a.type!=='kart').reduce((s,a)=>s+balance(a.id),0);
+  const borc=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+Math.min(0,balance(a.id)),0);
+  const gelecek=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+futureInstallments(a.id),0);
+  return `<h1>Metelik Cüzdan</h1>${monthBar()}
+  <div class="card"><div class="mute">Varlık (nakit + banka)</div><div class="big">${tl(varlik)}</div>
+    <div class="row mute"><span>Kart borcu: <b class="out">${tl(-borc)}</b></span><span>Gelecek taksit: ${tl(gelecek)}</span></div></div>
+  <div class="row"><div class="card" style="flex:1"><div class="mute">Gelir</div><b class="in">${tl(gelir)}</b></div>
+    <div class="card" style="flex:1"><div class="mute">Gider</div><b class="out">${tl(gider)}</b></div></div>
+  <div class="card"><div class="mute">Ay sonucu</div><b class="${gelir-gider<0?'out':'in'}">${tl(gelir-gider)}</b></div>
+  <h2>Kategoriler</h2>
+  ${cl.length?cl.map(([c,v])=>`<div class="card"><div class="row"><span>${esc(c)}</span><b>${tl(v)}</b></div><div class="bar"><i style="width:${Math.round(v/gider*100)}%"></i></div></div>`).join(''):'<div class="mute">Bu ay gider yok.</div>'}`;
+}
+function islem(){
+  const m=inMonth().sort((a,b)=>b.date.localeCompare(a.date));
+  return `<h1>İşlemler</h1>${monthBar()}`+(m.length?m.map(t=>{
+    const a=acc(t.acc),cls=t.type==='gelir'?'in':t.type==='gider'?'out':'';const sign=t.type==='gelir'?'+':t.type==='gider'?'−':'';
+    const sub=t.type==='transfer'?`${esc(a?.name)} → ${esc(acc(t.to)?.name)}`:`${esc(t.cat)} · ${esc(a?.name)}`;
+    return `<div class="card row"><div><div>${esc(t.note||(t.type==='transfer'?'Transfer / kart ödemesi':t.cat))}${t.inst?` <span class="mute">(${t.inst.n}/${t.inst.total} taksit)</span>`:''}</div>
+      <div class="mute">${t.date.split('-').reverse().join('.')} · ${sub}</div></div>
+      <div class="row"><b class="${cls}">${sign}${tl(t.amount)}</b><button class="del" data-del="${t.id}">✕</button></div></div>`}).join(''):'<div class="mute">Bu ay işlem yok.</div>');
+}
+function hesap(){
+  return `<h1>Hesaplar</h1>`+S.accounts.map(a=>{
+    const b=balance(a.id),k=a.type==='kart';
+    return `<div class="card"><div class="row"><div><b>${esc(a.name)}</b><div class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}</div></div>
+      <div class="row"><b class="${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</b><button class="del" data-delacc="${a.id}">✕</button></div></div>
+      ${k?`<div class="mute">Gelecek taksit: ${tl(futureInstallments(a.id))}${a.limit?` · kullanılabilir ${tl(a.limit+b-futureInstallments(a.id))}`:''}</div>`:''}</div>`}).join('')
+    +`<button class="btn" data-act="newacc">Hesap ekle</button>`;
+}
+function ayar(){
+  return `<h1>Ayarlar</h1><div class="card"><b>Yedek</b><div class="mute">iOS kullanılmayan web uygulama verisini silebilir. Düzenli yedek alın.</div>
+  <button class="btn" data-act="export">Verileri dışa aktar (JSON)</button>
+  <button class="btn alt" data-act="import">Yedekten içe aktar</button>
+  <input type="file" id="file" accept="application/json" hidden></div>`;
+}
+
+/* --- formlar --- */
+let F={type:'gider'};
+function openTx(){
+  if(!S.accounts.length){alert('Önce bir hesap ekleyin.');tab='hesap';render();return}
+  F={type:'gider'};drawTx();$('#sheet').classList.add('show');
+}
+function drawTx(){
+  const t=F.type,opts=S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  const card=acc(F.acc||S.accounts[0].id)?.type==='kart';
+  $('#form').innerHTML=`<div class="seg">${['gider','gelir','transfer'].map(k=>`<button type="button" data-ftype="${k}" class="${t===k?'on':''}">${{gider:'Gider',gelir:'Gelir',transfer:'Transfer / Kart ödemesi'}[k]}</button>`).join('')}</div>
+  <label>Tutar (TL)</label><input name="amount" inputmode="decimal" required placeholder="0,00" autofocus>
+  <label>${t==='transfer'?'Kaynak hesap':'Hesap'}</label><select name="acc">${opts}</select>
+  ${t==='transfer'?`<label>Hedef hesap (kart borcu ödemesi için kartı seçin)</label><select name="to">${opts}</select>`:`<label>Kategori</label><select name="cat">${KATEGORI[t].map(c=>`<option>${c}</option>`).join('')}</select>`}
+  <label>Tarih</label><input name="date" type="date" value="${today()}" required>
+  <label>Not</label><input name="note" placeholder="İsteğe bağlı">
+  ${t==='gider'?`<div id="instbox" style="${card?'':'display:none'}"><label>Taksit sayısı (1 = peşin)</label><input name="inst" type="number" min="1" max="36" value="1"></div>`:''}
+  <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
+  if(F.acc)$('#form [name=acc]').value=F.acc;
+}
+function openAcc(){
+  $('#form').innerHTML=`<label>Hesap adı</label><input name="name" required placeholder="Örn. Ziraat, Cüzdan, Bonus Kart">
+  <label>Tür</label><select name="type">${Object.entries(TIP).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+  <label>Açılış bakiyesi (TL) — kartta mevcut borcu eksi yazın (örn. -1500)</label><input name="opening" inputmode="decimal" value="0">
+  <label>Kart limiti (yalnız kart, isteğe bağlı)</label><input name="limit" inputmode="decimal">
+  <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
+  $('#form').dataset.kind='acc';$('#sheet').classList.add('show');
+}
+
+$('#form').addEventListener('submit',async e=>{
+  e.preventDefault();const f=new FormData(e.target);
+  if(e.target.dataset.kind==='acc'){
+    S.accounts.push({id:id(),name:f.get('name').trim(),type:f.get('type'),opening:toKurus(f.get('opening')||0)||0,limit:f.get('limit')?toKurus(f.get('limit')):0});
+  }else{
+    const amount=toKurus(f.get('amount'));if(!(amount>0)){alert('Geçerli bir tutar girin.');return}
+    const base={type:F.type,acc:f.get('acc'),date:f.get('date'),note:f.get('note').trim()};
+    if(F.type==='transfer'){
+      if(base.acc===f.get('to')){alert('Kaynak ve hedef farklı olmalı.');return}
+      S.tx.push({...base,id:id(),amount,to:f.get('to')});
+    }else{
+      base.cat=f.get('cat');const n=acc(base.acc).type==='kart'&&F.type==='gider'?Math.max(1,parseInt(f.get('inst'))||1):1;
+      if(n===1)S.tx.push({...base,id:id(),amount});
+      else{const plan=id(),each=Math.floor(amount/n);
+        for(let i=0;i<n;i++)S.tx.push({...base,id:id(),date:addMonths(base.date,i),amount:i===n-1?amount-each*(n-1):each,inst:{plan,n:i+1,total:n}})}
+    }
+  }
+  e.target.dataset.kind='';$('#sheet').classList.remove('show');await save();render();
+});
+
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('button,[data-tab]');if(!el)return;const d=el.dataset;
+  if(el.id==='fab')return d.act||(tab==='hesap'?openAcc():openTx());
+  if(d.tab){tab=d.tab;render()}
+  else if(d.m){const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+Number(d.m),1)).toISOString().slice(0,7);render()}
+  else if(d.ftype){F.type=d.ftype;F.acc=$('#form [name=acc]')?.value;drawTx()}
+  else if(d.del){const t=S.tx.find(x=>x.id===d.del);
+    if(t.inst&&confirm('Bu bir taksit planı. Planın tüm taksitleri silinsin mi?\n(İptal: yalnız bu taksit)'))S.tx=S.tx.filter(x=>x.inst?.plan!==t.inst.plan);
+    else if(confirm('İşlem silinsin mi?'))S.tx=S.tx.filter(x=>x.id!==d.del);
+    await save();render()}
+  else if(d.delacc){if(confirm('Hesap ve tüm işlemleri silinsin mi?')){S.tx=S.tx.filter(t=>t.acc!==d.delacc&&t.to!==d.delacc);S.accounts=S.accounts.filter(a=>a.id!==d.delacc);await save();render()}}
+  else if(d.act==='newacc')openAcc();
+  else if(d.act==='close'){$('#form').dataset.kind='';$('#sheet').classList.remove('show')}
+  else if(d.act==='export'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download=`metelik-yedek-${today()}.json`;a.click()}
+  else if(d.act==='import')$('#file').click();
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id==='file'){const file=e.target.files[0];if(!file)return;
+    try{const j=JSON.parse(await file.text());if(!Array.isArray(j.accounts)||!Array.isArray(j.tx))throw 0;
+      if(confirm('Mevcut veri yedekle değiştirilsin mi?')){S=j;await save();render()}}catch{alert('Geçersiz yedek dosyası.')}}
+  if(e.target.name==='acc'&&$('#instbox'))$('#instbox').style.display=acc(e.target.value)?.type==='kart'?'':'none';
+});
+
+(async()=>{const s=await load();if(s)S=s;render();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{})})();
+</script>
+</body>
+</html>
