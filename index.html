@@ -27,8 +27,8 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .bar{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--gold)}
 .bar i.share{background:#5b6a8f}.bar i.ok{background:var(--green)}.bar i.over{background:var(--red)}
-/* iOS 26 ana ekran uygulamasında web görünümü ekranın altına kadar inmiyor; altındaki şerit sayfaya ait değil, çizilemez.
-   Menü görünümün içinde kalır; şerit manifest background_color ile aynı renkte olduğundan sayfanın devamı gibi görünür. */
+/* iOS 26 ana ekran uygulamasında sayfa ekrandan kısaysa görünüm kısalıyor ve sabit menü yukarıda kalıyordu;
+   uzun (kaydırılabilir) sayfada sorun yok. JS sayfayı en az ekran yüksekliği kadar uzatır. */
 :root{--navb:max(env(safe-area-inset-bottom),12px)}
 html{background:var(--bg)}
 .glass{background:rgba(26,42,78,.5);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
@@ -279,6 +279,10 @@ document.addEventListener('change',async e=>{
 });
 
 month=today().slice(0,7);
+if(navigator.standalone||matchMedia('(display-mode: standalone)').matches){
+  const fill=()=>{document.body.style.minHeight=(innerWidth>innerHeight?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height))+1+'px'};
+  fill();addEventListener('resize',fill);
+}
 (async()=>{const s=await load();if(s)S=s;S.budgets||={};render();if('serviceWorker'in navigator){
   /* yeni sürüm devreye girince bir kez yenile; ilk kurulumda değil */
   const had=!!navigator.serviceWorker.controller;let done=false;
