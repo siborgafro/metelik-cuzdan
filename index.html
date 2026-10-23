@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1b33">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- black-translucent iOS 26'da görünüm yüksekliğini kısaltıyor: alt menü yukarıda kalıp altında boşluk açılıyordu -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -271,7 +272,11 @@ document.addEventListener('change',async e=>{
 });
 
 month=today().slice(0,7);
-(async()=>{const s=await load();if(s)S=s;S.budgets||={};render();if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{})})();
+(async()=>{const s=await load();if(s)S=s;S.budgets||={};render();if('serviceWorker'in navigator){
+  /* yeni sürüm devreye girince bir kez yenile; ilk kurulumda değil */
+  const had=!!navigator.serviceWorker.controller;let done=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{})}})();
 </script>
 </body>
 </html>
