@@ -13,8 +13,9 @@
 <style>
 :root{--bg:#0f1b33;--card:#16264a;--line:#243659;--cream:#f3ead2;--gold:#d9a93b;--mute:#8b98b8;--red:#e5736b;--green:#6cc08b}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding-bottom:84px}
-main{max-width:520px;margin:0 auto;padding:16px}
+body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+/* ana ekrandan açılınca sayfa çentik ve durum çubuğunun altına uzanır; güvenli alan kadar boşluk bırak */
+main{max-width:520px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left))}
 h1{font-size:20px;margin:0 0 12px;color:var(--gold)}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:22px 0 8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
@@ -28,10 +29,10 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 nav{position:fixed;left:0;right:0;bottom:0;background:#0b1428;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;background:none;border:0;color:var(--mute);padding:14px 0;font-size:14px}
 nav button.on{color:var(--gold);font-weight:600}
-.fab{position:fixed;right:18px;bottom:78px;width:56px;height:56px;border-radius:50%;border:0;background:var(--gold);color:var(--bg);font-size:30px;font-weight:700}
+.fab{position:fixed;right:18px;bottom:calc(78px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;background:var(--gold);color:var(--bg);font-size:30px;font-weight:700}
 .sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end}
 .sheet.show{display:flex}
-.sheet form{background:var(--bg);width:100%;max-width:520px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px;max-height:92vh;overflow:auto}
+.sheet form{background:var(--bg);width:100%;max-width:520px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:calc(100vh - env(safe-area-inset-top) - 12px);overflow:auto}
 label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--cream);font-size:16px}
 .seg{display:flex;gap:6px}
