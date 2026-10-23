@@ -39,6 +39,9 @@ input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--l
 .btn{width:100%;padding:13px;border-radius:12px;border:0;background:var(--gold);color:var(--bg);font-size:16px;font-weight:700;margin-top:14px}
 .btn.alt{background:var(--card);color:var(--cream);border:1px solid var(--line)}
 .del{background:none;border:0;color:var(--mute);font-size:18px;padding:4px 8px}
+.mini{background:var(--gold);color:var(--bg);border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:14px}
+.stmt{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;display:grid;gap:4px}
+[data-editacc]{cursor:pointer}
 .month{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .month button{background:var(--card);border:1px solid var(--line);color:var(--cream);border-radius:10px;padding:6px 14px;font-size:18px}
 </style>
@@ -72,7 +75,24 @@ function addMonths(ds,n){const [y,m,d]=ds.split('-').map(Number);const t=new Dat
 function monthLabel(m){const [y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleDateString('tr-TR',{month:'long',year:'numeric'})}
 /* bakiye: opening + gelir - gider + transfer; yalnız bugüne kadar olanlar. Kartta negatif = borç */
 function delta(t,a){if(t.type==='gelir'&&t.acc===a)return t.amount;if(t.type==='gider'&&t.acc===a)return -t.amount;if(t.type==='transfer'){if(t.acc===a)return -t.amount;if(t.to===a)return t.amount}return 0}
-function balance(a,untilToday=true){return (acc(a).opening||0)+S.tx.filter(t=>!untilToday||t.date<=today()).reduce((s,t)=>s+delta(t,a),0)}
+function balanceAt(a,date){return (acc(a).opening||0)+S.tx.filter(t=>t.date<=date).reduce((s,t)=>s+delta(t,a),0)}
+const balance=a=>balanceAt(a,today());
+const fd=d=>d.split('-').reverse().slice(0,2).join('.');
+function addDays(ds,n){const t=new Date(ds+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
+/* ay sonunu aşan kesim günü o ayın son gününe kayar */
+function cutDate(y,m0,c){const last=new Date(Date.UTC(y,m0+1,0)).getUTCDate();return new Date(Date.UTC(y,m0,Math.min(c,last))).toISOString().slice(0,10)}
+/* ekstre: son kesimdeki borç; kesimden sonraki ödemeler düşülür. Kesim günü yapılan harcama o ekstreye girer */
+function ekstre(a){
+  if(a.type!=='kart'||!a.cut)return null;
+  const [ty,tm]=today().split('-').map(Number);
+  let lc=cutDate(ty,tm-1,a.cut);if(lc>today())lc=cutDate(ty,tm-2,a.cut);
+  const [y,m]=lc.split('-').map(Number),nc=cutDate(y,m,a.cut),due=addDays(lc,a.dueDays??10);
+  const stmt=Math.max(0,-balanceAt(a.id,lc));
+  const paid=S.tx.filter(t=>t.date>lc&&t.date<=today()&&((t.type==='transfer'&&t.to===a.id)||(t.type==='gelir'&&t.acc===a.id))).reduce((s,t)=>s+t.amount,0);
+  const spend=(from,to)=>S.tx.filter(t=>t.acc===a.id&&(t.type==='gider'||t.type==='transfer')&&t.date>from&&t.date<=to).reduce((s,t)=>s+t.amount,0);
+  const rem=Math.max(0,stmt-paid);
+  return {lc,nc,due,stmt,rem,donem:spend(lc,today()),sonraki:spend(lc,nc),late:rem>0&&today()>due,left:Math.round((Date.parse(due)-Date.parse(today()))/864e5)};
+}
 function futureInstallments(a){return S.tx.filter(t=>t.acc===a&&t.type==='gider'&&t.date>today()).reduce((s,t)=>s+t.amount,0)}
 
 /* --- görünümler --- */
@@ -91,9 +111,13 @@ function ozet(){
   const varlik=S.accounts.filter(a=>a.type!=='kart').reduce((s,a)=>s+balance(a.id),0);
   const borc=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+Math.min(0,balance(a.id)),0);
   const gelecek=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+futureInstallments(a.id),0);
+  const odeme=S.accounts.map(a=>({a,e:ekstre(a)})).filter(x=>x.e&&x.e.rem>0).sort((x,y)=>x.e.due.localeCompare(y.e.due));
   return `<h1>Metelik Cüzdan</h1>${monthBar()}
   <div class="card"><div class="mute">Varlık (nakit + banka)</div><div class="big">${tl(varlik)}</div>
     <div class="row mute"><span>Kart borcu: <b class="out">${tl(-borc)}</b></span><span>Gelecek taksit: ${tl(gelecek)}</span></div></div>
+  ${odeme.length?'<h2>Kart ödemeleri</h2>'+odeme.map(({a,e})=>`<div class="card row"><div><b>${esc(a.name)}</b>
+    <div class="mute ${e.late?'out':''}">Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
+    <div class="row"><b class="out">${tl(e.rem)}</b><button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join(''):''}
   <div class="row"><div class="card" style="flex:1"><div class="mute">Gelir</div><b class="in">${tl(gelir)}</b></div>
     <div class="card" style="flex:1"><div class="mute">Gider</div><b class="out">${tl(gider)}</b></div></div>
   <div class="card"><div class="mute">Ay sonucu</div><b class="${gelir-gider<0?'out':'in'}">${tl(gelir-gider)}</b></div>
@@ -111,10 +135,14 @@ function islem(){
 }
 function hesap(){
   return `<h1>Hesaplar</h1>`+S.accounts.map(a=>{
-    const b=balance(a.id),k=a.type==='kart';
-    return `<div class="card"><div class="row"><div><b>${esc(a.name)}</b><div class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}</div></div>
+    const b=balance(a.id),k=a.type==='kart',e=ekstre(a);
+    return `<div class="card"><div class="row"><div data-editacc="${a.id}"><b>${esc(a.name)}</b> <span class="mute">✎</span><div class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}${e?` · kesim ${a.cut}`:''}</div></div>
       <div class="row"><b class="${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</b><button class="del" data-delacc="${a.id}">✕</button></div></div>
-      ${k?`<div class="mute">Gelecek taksit: ${tl(futureInstallments(a.id))}${a.limit?` · kullanılabilir ${tl(a.limit+b-futureInstallments(a.id))}`:''}</div>`:''}</div>`}).join('')
+      ${k?`<div class="mute">Gelecek taksit: ${tl(futureInstallments(a.id))}${a.limit?` · kullanılabilir ${tl(a.limit+b-futureInstallments(a.id))}`:''}</div>`:''}
+      ${e?`<div class="stmt"><div class="row"><span>Ekstre ${fd(e.lc)}: <b>${tl(e.stmt)}</b></span><span class="mute">Son ödeme ${fd(e.due)}</span></div>
+        <div class="row"><span class="${e.late?'out':e.rem?'':'in'}">${e.rem?`Kalan ${tl(e.rem)}${e.late?' · GECİKMİŞ':''}`:'Ekstre ödendi ✓'}</span>${e.rem?`<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button>`:''}</div>
+        <div class="mute">Dönem içi harcama: ${tl(e.donem)} · Sonraki ekstre (${fd(e.nc)}): ${tl(e.sonraki)}</div></div>`
+      :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')
     +`<button class="btn" data-act="newacc">Hesap ekle</button>`;
 }
 function ayar(){
@@ -142,20 +170,34 @@ function drawTx(){
   ${t==='gider'?`<div id="instbox" style="${card?'':'display:none'}"><label>Taksit sayısı (1 = peşin)</label><input name="inst" type="number" min="1" max="36" value="1"></div>`:''}
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
   if(F.acc)$('#form [name=acc]').value=F.acc;
+  if(F.to&&$('#form [name=to]'))$('#form [name=to]').value=F.to;
+  if(F.amount)$('#form [name=amount]').value=(F.amount/100).toFixed(2).replace('.',',');
 }
-function openAcc(){
-  $('#form').innerHTML=`<label>Hesap adı</label><input name="name" required placeholder="Örn. Ziraat, Cüzdan, Bonus Kart">
-  <label>Tür</label><select name="type">${Object.entries(TIP).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
-  <label>Açılış bakiyesi (TL) — kartta mevcut borcu eksi yazın (örn. -1500)</label><input name="opening" inputmode="decimal" value="0">
-  <label>Kart limiti (yalnız kart, isteğe bağlı)</label><input name="limit" inputmode="decimal">
+function openPay(cardId,amount){
+  const src=S.accounts.find(a=>a.type!=='kart');
+  F={type:'transfer',to:cardId,amount,acc:src?.id};drawTx();$('#form [name=note]').value=acc(cardId).name+' ekstre ödemesi';$('#sheet').classList.add('show');
+}
+const kurusStr=k=>k?(k/100).toFixed(2).replace('.',','):'';
+function openAcc(a){
+  $('#form').innerHTML=`<label>Hesap adı</label><input name="name" required placeholder="Örn. Ziraat, Cüzdan, Bonus Kart" value="${esc(a?.name)}">
+  <label>Tür</label><select name="type">${Object.entries(TIP).map(([k,v])=>`<option value="${k}" ${a?.type===k?'selected':''}>${v}</option>`).join('')}</select>
+  <label>Açılış bakiyesi (TL) — kartta mevcut borcu eksi yazın (örn. -1500)</label><input name="opening" inputmode="decimal" value="${a?(a.opening<0?'-':'')+kurusStr(Math.abs(a.opening)):'0'}">
+  <div id="kartbox" style="${a?.type==='kart'?'':'display:none'}">
+  <label>Kart limiti (isteğe bağlı)</label><input name="limit" inputmode="decimal" value="${kurusStr(a?.limit)}">
+  <label>Hesap kesim günü (1–31)</label><input name="cut" type="number" min="1" max="31" value="${a?.cut||''}" placeholder="Örn. 15">
+  <label>Son ödeme: kesimden kaç gün sonra</label><input name="dueDays" type="number" min="1" max="31" value="${a?.dueDays??10}"></div>
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
-  $('#form').dataset.kind='acc';$('#sheet').classList.add('show');
+  $('#form').dataset.kind='acc';$('#form').dataset.edit=a?.id||'';$('#sheet').classList.add('show');
 }
 
 $('#form').addEventListener('submit',async e=>{
   e.preventDefault();const f=new FormData(e.target);
   if(e.target.dataset.kind==='acc'){
-    S.accounts.push({id:id(),name:f.get('name').trim(),type:f.get('type'),opening:toKurus(f.get('opening')||0)||0,limit:f.get('limit')?toKurus(f.get('limit')):0});
+    const kart=f.get('type')==='kart',cut=parseInt(f.get('cut'));
+    const v={name:f.get('name').trim(),type:f.get('type'),opening:toKurus(f.get('opening')||0)||0,limit:kart&&f.get('limit')?toKurus(f.get('limit')):0,
+      cut:kart&&cut>=1&&cut<=31?cut:0,dueDays:Math.min(31,Math.max(1,parseInt(f.get('dueDays'))||10))};
+    const ex=acc(e.target.dataset.edit);
+    if(ex)Object.assign(ex,v);else S.accounts.push({id:id(),...v});
   }else{
     const amount=toKurus(f.get('amount'));if(!(amount>0)){alert('Geçerli bir tutar girin.');return}
     const base={type:F.type,acc:f.get('acc'),date:f.get('date'),note:f.get('note').trim()};
@@ -173,7 +215,9 @@ $('#form').addEventListener('submit',async e=>{
 });
 
 document.addEventListener('click',async e=>{
-  const el=e.target.closest('button,[data-tab]');if(!el)return;const d=el.dataset;
+  const el=e.target.closest('button,[data-tab],[data-editacc]');if(!el)return;const d=el.dataset;
+  if(d.editacc)return openAcc(acc(d.editacc));
+  if(d.pay)return openPay(d.pay,Number(d.amt));
   if(el.id==='fab')return d.act||(tab==='hesap'?openAcc():openTx());
   if(d.tab){tab=d.tab;render()}
   else if(d.m){const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+Number(d.m),1)).toISOString().slice(0,7);render()}
@@ -192,6 +236,7 @@ document.addEventListener('change',async e=>{
   if(e.target.id==='file'){const file=e.target.files[0];if(!file)return;
     try{const j=JSON.parse(await file.text());if(!Array.isArray(j.accounts)||!Array.isArray(j.tx))throw 0;
       if(confirm('Mevcut veri yedekle değiştirilsin mi?')){S=j;await save();render()}}catch{alert('Geçersiz yedek dosyası.')}}
+  if(e.target.name==='type'&&$('#kartbox'))$('#kartbox').style.display=e.target.value==='kart'?'':'none';
   if(e.target.name==='acc'&&$('#instbox'))$('#instbox').style.display=acc(e.target.value)?.type==='kart'?'':'none';
 });
 
