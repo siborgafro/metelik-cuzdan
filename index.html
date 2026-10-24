@@ -52,6 +52,9 @@ input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--l
 .mini{background:var(--gold);color:var(--bg);border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:14px}
 .mini.alt{background:var(--card);color:var(--mute);border:1px solid var(--line);margin-right:8px}
 [data-editrec]{cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.cat{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 3px 3px 12px;font-size:14px}
+.cat button{background:none;border:0;color:var(--mute);font-size:12px;padding:4px 8px}
 .rtab{padding:4px 14px}
 .rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .rrow.skip{opacity:.5}.rr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
@@ -70,9 +73,11 @@ input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--l
 <div class="sheet" id="sheet"><form id="form"></form></div>
 
 <script>
-const KATEGORI={gider:['Market','Yemek','Fatura','Abonelik','Ulaşım','Kira','Sağlık','Eğlence','Alışveriş','Kahve','Diğer'],gelir:['Maaş','Yemek kartı yüklemesi','Ek gelir','Diğer']};
+/* varsayılanlar; kullanıcı Ayarlar'dan ekler/siler, liste S.cats içinde saklanır */
+const KAT=t=>S.cats[t];
+const DEF_KAT={gider:['Market','Yemek','Fatura','Abonelik','Ulaşım','Kira','Sağlık','Eğlence','Alışveriş','Kahve','Diğer'],gelir:['Maaş','Yemek kartı yüklemesi','Ek gelir','Diğer']};
 const TIP={nakit:'Nakit',banka:'Banka',kart:'Kredi kartı',yemek:'Yemek kartı'};
-let S={accounts:[],tx:[],budgets:{},recurring:[]},tab='ozet',month;
+let S={accounts:[],tx:[],budgets:{},recurring:[],cats:JSON.parse(JSON.stringify(DEF_KAT))},tab='ozet',month;
 
 /* --- depolama (IndexedDB) --- */
 const db=new Promise((res,rej)=>{let r;try{r=indexedDB.open('metelik',1)}catch(e){return rej(e)}r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -218,8 +223,12 @@ function hesap(){
 }
 function ayar(){
   const B=S.budgets||{};
-  return `<h1>Ayarlar</h1><div class="card"><b>Aylık bütçe limitleri</b><div class="mute">Her ay için geçerli. Boş bırakılan kategoride limit yok. Taksitler ödendiği ayın bütçesine yazılır.</div>
-  <form id="bform">${KATEGORI.gider.map(c=>`<label>${c}</label><input name="${c}" inputmode="decimal" placeholder="Limit yok" value="${kurusStr(B[c])}">`).join('')}
+  return `<h1>Ayarlar</h1><div class="card"><b>Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
+  ${['gider','gelir'].map(t=>`<label>${t==='gider'?'Gider':'Gelir'}</label>
+    <div class="chips">${KAT(t).map(c=>`<span class="cat">${esc(c)}<button data-delcat="${esc(c)}" data-ct="${t}" aria-label="${esc(c)} sil">✕</button></span>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><input id="newcat-${t}" maxlength="24" placeholder="${t==='gider'?'Örn. Elektrik, Su, İnternet':'Örn. Kira geliri'}" style="flex:1"><button class="mini" data-addcat="${t}">Ekle</button></div>`).join('')}</div>
+  <div class="card"><b>Aylık bütçe limitleri</b><div class="mute">Her ay için geçerli. Boş bırakılan kategoride limit yok. Taksitler ödendiği ayın bütçesine yazılır.</div>
+  <form id="bform">${KAT('gider').map(c=>`<label>${esc(c)}</label><input name="${esc(c)}" inputmode="decimal" placeholder="Limit yok" value="${kurusStr(B[c])}">`).join('')}
   <button class="btn" type="submit">Bütçeyi kaydet</button></form></div>
   <div class="card"><b>Yedek</b><div class="mute">iOS kullanılmayan web uygulama verisini silebilir. Düzenli yedek alın.</div>
   <button class="btn" data-act="export">Verileri dışa aktar (JSON)</button>
@@ -240,7 +249,7 @@ function drawTx(){
   <label>Tutar (TL)</label><input name="amount" inputmode="decimal" required placeholder="0,00" autofocus>
   <label>${t==='transfer'?'Açıklama':'Ad'}</label><input name="note" placeholder="${t==='gider'?'Örn. Migros, Netflix, Elektrik':t==='gelir'?'Örn. Ekim maaşı':'İsteğe bağlı'}">
   <label>${t==='transfer'?'Kaynak hesap':'Hesap'}</label><select name="acc">${opts}</select>
-  ${t==='transfer'?`<label>Hedef hesap (kart borcu ödemesi için kartı seçin)</label><select name="to">${opts}</select>`:`<label>Kategori</label><select name="cat">${KATEGORI[t].map(c=>`<option>${c}</option>`).join('')}</select>`}
+  ${t==='transfer'?`<label>Hedef hesap (kart borcu ödemesi için kartı seçin)</label><select name="to">${opts}</select>`:`<label>Kategori</label><select name="cat">${catOpts(t,F.cat)}</select>`}
   <label>Tarih</label><input name="date" type="date" value="${today()}" required>
   ${t==='gider'?`<div id="instbox" style="${card?'':'display:none'}"><label>Taksit sayısı (1 = peşin)</label><input name="inst" type="number" min="1" max="36" value="1"></div>`:''}
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
@@ -251,6 +260,9 @@ function drawTx(){
   if(F.note)$('#form [name=note]').value=F.note;
   if(F.date)$('#form [name=date]').value=F.date;
 }
+/* silinmiş bir kategori düzenlenen kayıtta hâlâ seçili kalabilsin */
+function catOpts(t,sel){const L=KAT(t).includes(sel)||!sel?KAT(t):[...KAT(t),sel];
+  return L.map(c=>`<option ${c===sel?'selected':''}>${esc(c)}</option>`).join('')}
 function openRecPay(rid,mo){
   if(!S.accounts.length){alert('Önce bir hesap ekleyin.');return}
   const r=S.recurring.find(x=>x.id===rid);
@@ -262,7 +274,7 @@ function openRec(r){
   $('#form').innerHTML=`<b>Tekrar eden gider</b>
   <label>Ad</label><input name="name" required placeholder="Örn. Netflix, Elektrik, Telefon" value="${esc(r?.name)}">
   <label>Tutar (TL) — değişen faturalarda tahmini tutar</label><input name="amount" inputmode="decimal" required placeholder="0,00" value="${kurusStr(r?.amount)}">
-  <label>Kategori</label><select name="cat">${KATEGORI.gider.map(c=>`<option ${(r?.cat||'Fatura')===c?'selected':''}>${c}</option>`).join('')}</select>
+  <label>Kategori</label><select name="cat">${catOpts('gider',r?.cat||'Fatura')}</select>
   <label>Hesap</label><select name="acc">${S.accounts.map(a=>`<option value="${a.id}" ${r?.acc===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
   <label>Her ayın kaçında (1–31)</label><input name="day" type="number" min="1" max="31" required value="${r?.day||''}" placeholder="Örn. 5">
   <label style="display:flex;gap:10px;align-items:center;color:var(--cream);font-size:15px;margin-top:14px"><input type="checkbox" name="auto" style="width:auto" ${r?.auto?'checked':''}> Günü gelince otomatik ekle</label>
@@ -335,7 +347,7 @@ $('#form').addEventListener('submit',async e=>{
 });
 document.addEventListener('submit',async e=>{
   if(e.target.id!=='bform')return;e.preventDefault();const f=new FormData(e.target);
-  S.budgets={};for(const c of KATEGORI.gider){const v=toKurus(f.get(c)||'');if(v>0)S.budgets[c]=v}
+  S.budgets={};for(const c of KAT('gider')){const v=toKurus(f.get(c)||'');if(v>0)S.budgets[c]=v}
   await save();tab='ozet';render();
 });
 
@@ -347,6 +359,14 @@ document.addEventListener('click',async e=>{
   if(d.recskip){const r=S.recurring.find(x=>x.id===d.recskip);r.done.push(d.mo);await save();return render()}
   if(d.delrec){if(confirm('Tekrar eden gider silinsin mi? Geçmiş işlemler kalır.')){S.recurring=S.recurring.filter(r=>r.id!==d.delrec);await save();render()}return}
   if(d.act==='newrec')return openRec();
+  if(d.addcat){let v=$('#newcat-'+d.addcat).value.trim().replace(/\s+/g,' ');const L=KAT(d.addcat);if(!v)return;
+    v=v[0].toLocaleUpperCase('tr')+v.slice(1);
+    if(L.some(c=>c.toLocaleLowerCase('tr')===v.toLocaleLowerCase('tr'))){alert('Bu kategori zaten var.');return}
+    /* "Diğer" hep sonda kalsın */
+    const di=L.indexOf('Diğer');di<0?L.push(v):L.splice(di,0,v);await save();render();$('#newcat-'+d.addcat).focus();return}
+  if(d.delcat){const L=KAT(d.ct);if(L.length<=1){alert('En az bir kategori kalmalı.');return}
+    if(!confirm(`"${d.delcat}" kategorisi silinsin mi?`))return;
+    S.cats[d.ct]=L.filter(c=>c!==d.delcat);if(d.ct==='gider')delete S.budgets[d.delcat];await save();render();return}
   if(d.pay)return openPay(d.pay,Number(d.amt));
   if(d.sign){$('#form [name=sign]').value=d.sign;el.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));return}
   if(el.id==='fab')return d.act||(tab==='hesap'?openAcc():openTx());
@@ -363,10 +383,11 @@ document.addEventListener('click',async e=>{
   else if(d.act==='export'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download=`metelik-yedek-${today()}.json`;a.click()}
   else if(d.act==='import')$('#file').click();
 });
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id?.startsWith('newcat-')){e.preventDefault();$(`[data-addcat="${e.target.id.slice(7)}"]`).click()}});
 document.addEventListener('change',async e=>{
   if(e.target.id==='file'){const file=e.target.files[0];if(!file)return;
     try{const j=JSON.parse(await file.text());if(!Array.isArray(j.accounts)||!Array.isArray(j.tx))throw 0;
-      if(confirm('Mevcut veri yedekle değiştirilsin mi?')){S=j;S.budgets||={};S.recurring||=[];await save();render()}}catch{alert('Geçersiz yedek dosyası.')}}
+      if(confirm('Mevcut veri yedekle değiştirilsin mi?')){S=j;fillDefaults();await save();render()}}catch{alert('Geçersiz yedek dosyası.')}}
   if(e.target.name==='type'&&$('#kartbox')){const k=e.target.value==='kart';$('#kartbox').style.display=k?'':'none';
     $('#signhint').textContent=k?'Kart borcu varsa − seçin.':'Ek hesap / eksi bakiye için − seçin.'}
   if(e.target.name==='acc'&&$('#instbox'))$('#instbox').style.display=acc(e.target.value)?.type==='kart'?'':'none';
@@ -377,7 +398,8 @@ if(navigator.standalone||matchMedia('(display-mode: standalone)').matches){
   const fill=()=>{document.body.style.minHeight=(innerWidth>innerHeight?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height))+1+'px'};
   fill();addEventListener('resize',fill);
 }
-(async()=>{const s=await load();if(s)S=s;S.budgets||={};S.recurring||=[];render();if('serviceWorker'in navigator){
+function fillDefaults(){S.budgets||={};S.recurring||=[];S.cats||=JSON.parse(JSON.stringify(DEF_KAT))}
+(async()=>{const s=await load();if(s)S=s;fillDefaults();render();if('serviceWorker'in navigator){
   /* yeni sürüm devreye girince bir kez yenile; ilk kurulumda değil */
   const had=!!navigator.serviceWorker.controller;let done=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});
