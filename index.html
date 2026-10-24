@@ -133,7 +133,8 @@ const FILE='contents/metelik.json';
 /* uzak dosya: {sha,text} ya da yoksa null */
 async function remoteGet(cfg){
   const r=await gh(cfg,FILE);if(r.status===404)return null;
-  if(!r.ok)throw new Error(r.status===401?'Anahtar geçersiz veya süresi dolmuş.':r.status===403?'Anahtarın bu repoya yazma izni yok.':'GitHub hatası '+r.status);
+  if(!r.ok){const m=(await r.json().catch(()=>({}))).message||'';
+    throw new Error((r.status===401?'Anahtar geçersiz veya süresi dolmuş.':r.status===403?`Anahtarın ${cfg.owner}/${cfg.repo} reposuna erişimi yok. Token ayarında bu repo seçili mi?`:'GitHub hatası '+r.status)+(m?` (GitHub: ${m})`:''))}
   const j=await r.json();let c=j.content;
   if(!c){const b=await gh(cfg,'git/blobs/'+j.sha);c=(await b.json()).content}
   return {sha:j.sha,text:atob(c.replace(/\n/g,''))}}
