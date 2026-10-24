@@ -77,13 +77,95 @@ input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--l
 const KAT=t=>S.cats[t];
 const DEF_KAT={gider:['Market','Yemek','Fatura','Abonelik','Ulaşım','Kira','Sağlık','Eğlence','Alışveriş','Kahve','Diğer'],gelir:['Maaş','Yemek kartı yüklemesi','Ek gelir','Diğer']};
 const TIP={nakit:'Nakit',banka:'Banka',kart:'Kredi kartı',yemek:'Yemek kartı'};
-let S={accounts:[],tx:[],budgets:{},recurring:[],cats:JSON.parse(JSON.stringify(DEF_KAT))},tab='ozet',month;
+let S={accounts:[],tx:[],budgets:{},recurring:[],cats:JSON.parse(JSON.stringify(DEF_KAT)),deleted:{},meta:{}},tab='ozet',month;
 
 /* --- depolama (IndexedDB) --- */
 const db=new Promise((res,rej)=>{let r;try{r=indexedDB.open('metelik',1)}catch(e){return rej(e)}r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 db.catch(()=>{});
-async function load(){try{const d=await db;return await new Promise(res=>{const q=d.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch{return null}}
-async function save(){try{const d=await db;d.transaction('kv','readwrite').objectStore('kv').put(JSON.parse(JSON.stringify(S)),'state')}catch{}}
+async function kvGet(k){try{const d=await db;return await new Promise(res=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch{return null}}
+async function kvPut(k,v){try{const d=await db;await new Promise(res=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=t.onerror=res})}catch{}}
+const load=()=>kvGet('state');
+async function persist(){await kvPut('state',JSON.parse(JSON.stringify(S)))}
+async function save(){stamp();await persist();scheduleSync()}
+
+/* --- değişiklik damgası ---
+   Her kayıt değiştiğinde u = zaman; silinen kayıt S.deleted["tür:id"] = zaman olarak iz bırakır.
+   Damgalama save() içinde son kaydedilen hâlle karşılaştırılarak yapılır; tek tek işlemlere dokunmak gerekmez. */
+const COLS=['accounts','tx','recurring'],FIELDS=['budgets','cats'];
+let SNAP=null;
+function snapOf(){const m={};
+  for(const c of COLS)for(const x of S[c]){const {u,...r}=x;m[c+':'+x.id]=JSON.stringify(r)}
+  for(const f of FIELDS)m[f]=JSON.stringify(S[f]);return m}
+function stamp(){const now=Date.now(),cur=snapOf();
+  if(SNAP){for(const c of COLS)for(const x of S[c]){const k=c+':'+x.id;if(SNAP[k]!==cur[k])x.u=now}
+    for(const k in SNAP)if(k.includes(':')&&!(k in cur))S.deleted[k]=now;
+    for(const f of FIELDS)if(SNAP[f]!==cur[f])S.meta[f]=now}
+  SNAP=cur}
+/* iki sürümü birleştir: kayıt bazında yeni olan kazanır, silme izi kayıttan yeniyse kayıt düşer */
+function merge(A,B){
+  const out={deleted:{...A.deleted},meta:{}};
+  for(const k in B.deleted)out.deleted[k]=Math.max(out.deleted[k]||0,B.deleted[k]);
+  for(const c of COLS){const m=new Map();
+    for(const x of [...A[c],...B[c]]){const o=m.get(x.id);
+      if(!o)m.set(x.id,x);
+      else{const w=(x.u||0)>(o.u||0)?x:o;
+        m.set(x.id,c==='recurring'?{...w,done:[...new Set([...(o.done||[]),...(x.done||[])])]}:w)}}
+    out[c]=[...m.values()].filter(x=>!(out.deleted[c+':'+x.id]>=(x.u||0)))}
+  for(const f of FIELDS){const a=A.meta[f]||0,b=B.meta[f]||0;out[f]=b>a?B[f]:A[f];out.meta[f]=Math.max(a,b)}
+  return out}
+
+/* --- şifreli senkron (özel GitHub reposundaki tek dosya) ---
+   Ayar cihazda kalır, senkron edilmez. Şifre saklanmaz; ondan türetilen, dışa aktarılamayan anahtar saklanır. */
+const SY={cfg:null,busy:false,again:false,last:null,err:''};
+const b64=u8=>{let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode(...u8.subarray(i,i+8192));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pass,salt){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function seal(obj,key,salt){const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(obj)));
+  return JSON.stringify({v:1,salt:b64(salt),iv:b64(iv),ct:b64(new Uint8Array(ct))})}
+async function unseal(txt,key){const f=JSON.parse(txt);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(f.iv)},key,unb64(f.ct));return JSON.parse(new TextDecoder().decode(pt))}
+function gh(cfg,path,opt={}){return fetch(`${cfg.api||'https://api.github.com'}/repos/${cfg.owner}/${cfg.repo}/${path}`,{cache:'no-store',...opt,
+  headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}})}
+const FILE='contents/metelik.json';
+/* uzak dosya: {sha,text} ya da yoksa null */
+async function remoteGet(cfg){
+  const r=await gh(cfg,FILE);if(r.status===404)return null;
+  if(!r.ok)throw new Error(r.status===401?'Anahtar geçersiz veya süresi dolmuş.':r.status===403?'Anahtarın bu repoya yazma izni yok.':'GitHub hatası '+r.status);
+  const j=await r.json();let c=j.content;
+  if(!c){const b=await gh(cfg,'git/blobs/'+j.sha);c=(await b.json()).content}
+  return {sha:j.sha,text:atob(c.replace(/\n/g,''))}}
+async function remotePut(cfg,text,sha){
+  const r=await gh(cfg,FILE,{method:'PUT',body:JSON.stringify({message:'Metelik senkron',content:btoa(text),...(sha?{sha}:{})})});
+  if(r.status===409||r.status===422)return false;if(!r.ok)throw new Error('GitHub yazma hatası '+r.status);return true}
+async function sync(){
+  const cfg=SY.cfg;if(!cfg)return;if(SY.busy){SY.again=true;return}
+  SY.busy=true;SY.err='';syncBadge();
+  try{for(let i=0;i<4;i++){
+      const rem=await remoteGet(cfg),R=rem?await unseal(rem.text,cfg.key):null,M=R?merge(S,R):S;
+      if(canon(M)!==canon(S)){Object.assign(S,M);SNAP=snapOf();await persist();render()}
+      if(R&&canon(M)===canon(R))break;
+      if(await remotePut(cfg,await seal(S,cfg.key,unb64(cfg.salt)),rem?.sha))break;
+      if(i===3)throw new Error('Çakışma çözülemedi, tekrar deneyin.')}
+    SY.last=new Date()}
+  catch(e){SY.err=e.name==='OperationError'?'Senkron şifresi bu veriyi açamadı.':e.message||'Bağlantı hatası'}
+  SY.busy=false;syncBadge();if(SY.again){SY.again=false;sync()}}
+/* sıra bağımsız karşılaştırma: anahtarlar ve id'li diziler sıralanır */
+function canon(o){const key=x=>x&&typeof x==='object'&&'id'in x?'#'+x.id:JSON.stringify(x);
+  const s=v=>Array.isArray(v)?v.map(s).sort((a,b)=>{const x=key(a),y=key(b);return x<y?-1:x>y?1:0})
+  :v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,s(v[k])])):v;
+  return JSON.stringify(s({accounts:o.accounts,tx:o.tx,recurring:o.recurring,budgets:o.budgets,cats:o.cats,deleted:o.deleted,meta:o.meta}))}
+let syncT;function scheduleSync(){if(!SY.cfg)return;clearTimeout(syncT);syncT=setTimeout(sync,1500)}
+/* ilk bağlantı: uzakta dosya varsa şifreyi onunla doğrula, yoksa yeni tuz üret */
+async function connect(c){
+  const rem=await remoteGet(c);let salt;
+  if(rem){salt=unb64(JSON.parse(rem.text).salt);c.key=await deriveKey(c.pass,salt);await unseal(rem.text,c.key)}
+  else{salt=crypto.getRandomValues(new Uint8Array(16));c.key=await deriveKey(c.pass,salt)}
+  delete c.pass;c.salt=b64(salt);SY.cfg=c;await kvPut('sync',c);await sync()}
+function syncBadge(){const el=$('#syncst');if(!el)return;
+  el.innerHTML=SY.busy?'Eşitleniyor…':SY.err?`<span class="out">${esc(SY.err)}</span>`:SY.last?`Son eşitleme ${SY.last.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} ✓`:'Henüz eşitlenmedi'}
 
 /* --- yardımcılar --- */
 const $=s=>document.querySelector(s);
@@ -134,7 +216,8 @@ function pendingRecs(){
   for(const r of S.recurring){r.done||=[];
     for(const mo of recMonths(r)){
       if(r.done.includes(mo))continue;const date=recDate(r,mo);if(date>today())continue;
-      if(r.auto&&acc(r.acc)){S.tx.push({id:id(),type:'gider',acc:r.acc,cat:r.cat,note:r.name,amount:r.amount,date,rec:r.id});r.done.push(mo);changed=true}
+      /* sabit id: iki cihaz aynı ayı ayrı ayrı eklerse senkronda tek kayda iner */
+      if(r.auto&&acc(r.acc)){S.tx.push({id:`r-${r.id}-${mo}`,type:'gider',acc:r.acc,cat:r.cat,note:r.name,amount:r.amount,date,rec:r.id});r.done.push(mo);changed=true}
       else p.push({r,mo,date})}}
   if(changed)save();
   return p.sort((a,b)=>a.date.localeCompare(b.date));
@@ -144,6 +227,7 @@ function render(){
   $('#nav').innerHTML=[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('');
   $('#fab').style.display=tab==='ayar'?'none':'block';
   $('#app').innerHTML=({ozet,islem,hesap,ayar})[tab]();
+  syncBadge();
 }
 function monthBar(){return `<div class="month"><button class="glass" data-m="-1" aria-label="Önceki ay">‹</button><b>${monthLabel(month)}</b><button class="glass" data-m="1" aria-label="Sonraki ay">›</button></div>`}
 const inMonth=()=>S.tx.filter(t=>t.date.startsWith(month));
@@ -221,9 +305,20 @@ function hesap(){
       :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')
     +`<button class="btn" data-act="newacc">Hesap ekle</button>`;
 }
+function syncCard(){
+  if(SY.cfg)return `<div class="card"><b>Senkron</b><div class="mute">${esc(SY.cfg.owner)}/${esc(SY.cfg.repo)} · şifreli</div>
+    <div id="syncst" class="mute" style="margin-top:6px"></div>
+    <button class="btn" data-act="syncnow">Şimdi eşitle</button><button class="btn alt" data-act="syncoff">Bu cihazda bağlantıyı kes</button></div>`;
+  return `<div class="card"><b>Senkron</b><div class="mute">Telefon ve bilgisayar aynı veriyi görsün. Veri bu cihazda şifrelenip özel GitHub reponuza yazılır.</div>
+  <form id="sform"><label>GitHub kullanıcı adı</label><input name="owner" value="siborgafro" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+  <label>Repo</label><input name="repo" value="metelik-veri" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+  <label>Erişim anahtarı (token)</label><input name="token" type="password" autocomplete="off" required>
+  <label>Senkron şifresi (en az 8 karakter)</label><input name="pass" type="password" autocomplete="new-password" minlength="8" required>
+  <div class="mute">Tüm cihazlarda aynı şifreyi girin. Unutulursa buluttaki kopya açılamaz; cihazdaki veri yerinde kalır.</div>
+  <div id="sform-st" class="mute" style="margin-top:6px"></div><button class="btn" type="submit">Bağlan</button></form></div>`}
 function ayar(){
   const B=S.budgets||{};
-  return `<h1>Ayarlar</h1><div class="card"><b>Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
+  return `<h1>Ayarlar</h1>${syncCard()}<div class="card"><b>Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
   ${['gider','gelir'].map(t=>`<label>${t==='gider'?'Gider':'Gelir'}</label>
     <div class="chips">${KAT(t).map(c=>`<span class="cat">${esc(c)}<button data-delcat="${esc(c)}" data-ct="${t}" aria-label="${esc(c)} sil">✕</button></span>`).join('')}</div>
     <div class="row" style="margin-top:8px"><input id="newcat-${t}" maxlength="24" placeholder="${t==='gider'?'Örn. Elektrik, Su, İnternet':'Örn. Kira geliri'}" style="flex:1"><button class="mini" data-addcat="${t}">Ekle</button></div>`).join('')}</div>
@@ -346,6 +441,12 @@ $('#form').addEventListener('submit',async e=>{
   if(warn)setTimeout(()=>alert(warn),50);
 });
 document.addEventListener('submit',async e=>{
+  if(e.target.id!=='sform')return;e.preventDefault();const f=new FormData(e.target),st=$('#sform-st'),btn=e.target.querySelector('[type=submit]');
+  btn.disabled=true;st.textContent='Bağlanıyor…';
+  try{await connect({owner:f.get('owner').trim(),repo:f.get('repo').trim(),token:f.get('token').trim(),pass:f.get('pass')});render()}
+  catch(err){st.innerHTML=`<span class="out">${esc(err.name==='OperationError'?'Şifre yanlış: buluttaki veri bu şifreyle açılamadı.':err.message||'Bağlanılamadı.')}</span>`;btn.disabled=false}
+});
+document.addEventListener('submit',async e=>{
   if(e.target.id!=='bform')return;e.preventDefault();const f=new FormData(e.target);
   S.budgets={};for(const c of KAT('gider')){const v=toKurus(f.get(c)||'');if(v>0)S.budgets[c]=v}
   await save();tab='ozet';render();
@@ -359,6 +460,8 @@ document.addEventListener('click',async e=>{
   if(d.recskip){const r=S.recurring.find(x=>x.id===d.recskip);r.done.push(d.mo);await save();return render()}
   if(d.delrec){if(confirm('Tekrar eden gider silinsin mi? Geçmiş işlemler kalır.')){S.recurring=S.recurring.filter(r=>r.id!==d.delrec);await save();render()}return}
   if(d.act==='newrec')return openRec();
+  if(d.act==='syncnow')return sync();
+  if(d.act==='syncoff'){if(confirm('Bu cihazın senkron bağlantısı kesilsin mi? Veriler silinmez.')){SY.cfg=null;SY.last=null;await kvPut('sync',null);render()}return}
   if(d.addcat){let v=$('#newcat-'+d.addcat).value.trim().replace(/\s+/g,' ');const L=KAT(d.addcat);if(!v)return;
     v=v[0].toLocaleUpperCase('tr')+v.slice(1);
     if(L.some(c=>c.toLocaleLowerCase('tr')===v.toLocaleLowerCase('tr'))){alert('Bu kategori zaten var.');return}
@@ -398,8 +501,10 @@ if(navigator.standalone||matchMedia('(display-mode: standalone)').matches){
   const fill=()=>{document.body.style.minHeight=(innerWidth>innerHeight?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height))+1+'px'};
   fill();addEventListener('resize',fill);
 }
-function fillDefaults(){S.budgets||={};S.recurring||=[];S.cats||=JSON.parse(JSON.stringify(DEF_KAT))}
-(async()=>{const s=await load();if(s)S=s;fillDefaults();render();if('serviceWorker'in navigator){
+function fillDefaults(){S.budgets||={};S.recurring||=[];S.cats||=JSON.parse(JSON.stringify(DEF_KAT));S.deleted||={};S.meta||={}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sync()});
+(async()=>{const s=await load();if(s)S=s;fillDefaults();SNAP=snapOf();render();
+  const c=await kvGet('sync');if(c?.key){SY.cfg=c;sync()}if('serviceWorker'in navigator){
   /* yeni sürüm devreye girince bir kez yenile; ilk kurulumda değil */
   const had=!!navigator.serviceWorker.controller;let done=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});
