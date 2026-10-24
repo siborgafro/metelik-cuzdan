@@ -52,6 +52,11 @@ input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--l
 .mini{background:var(--gold);color:var(--bg);border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:14px}
 .mini.alt{background:var(--card);color:var(--mute);border:1px solid var(--line);margin-right:8px}
 [data-editrec]{cursor:pointer}
+.rtab{padding:4px 14px}
+.rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rrow.skip{opacity:.5}.rr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.chip{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:2px 8px}.chip.in{color:var(--green);border-color:#2f5a44}
+.rsum{padding:10px 0 8px;flex-wrap:wrap}
 .stmt{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;display:grid;gap:4px}
 [data-editacc]{cursor:pointer}
 .month{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -152,8 +157,13 @@ function ozet(){
   const borc=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+Math.min(0,balance(a.id)),0);
   const gelecek=S.accounts.filter(a=>a.type==='kart').reduce((s,a)=>s+futureInstallments(a.id),0);
   const odeme=S.accounts.map(a=>({a,e:ekstre(a)})).filter(x=>x.e&&x.e.rem>0).sort((x,y)=>x.e.due.localeCompare(y.e.due));
-  const bek=pendingRecs(),bu=today().slice(0,7);
-  const yak=S.recurring.filter(r=>r.start<=bu&&!(r.done||[]).includes(bu)&&recDate(r,bu)>today()).sort((a,b)=>a.day-b.day);
+  /* seçili aydakiler tabloda; eski aylardan kalan onay bekleyenler ayrı listede */
+  const bek=pendingRecs().filter(p=>p.mo!==month);
+  const rt=S.recurring.filter(r=>r.start<=month).map(r=>{
+    const date=recDate(r,month),tx=S.tx.find(t=>t.rec===r.id&&t.date.startsWith(month));
+    const st=tx?'paid':(r.done||[]).includes(month)?'skip':date>today()?'soon':'wait';
+    return {r,date,st,amt:tx?tx.amount:r.amount}}).sort((a,b)=>a.date.localeCompare(b.date));
+  const rTop=rt.filter(x=>x.st!=='skip').reduce((s,x)=>s+x.amt,0),rPaid=rt.filter(x=>x.st==='paid').reduce((s,x)=>s+x.amt,0);
   return `<h1>Metelik Cüzdan</h1>${monthBar()}
   <div class="card"><div class="mute">Varlık (nakit + banka)</div><div class="big">${tl(varlik)}</div>
     <div class="row mute"><span>Kart borcu: <b class="out">${tl(-borc)}</b></span><span>Gelecek taksit: ${tl(gelecek)}</span></div>
@@ -164,7 +174,12 @@ function ozet(){
   ${bek.length?'<h2>Ödeme bekleyen</h2>'+bek.map(({r,mo,date})=>`<div class="card"><div class="row"><div><b>${esc(r.name)}</b>
     <div class="mute">${esc(r.cat)} · ${fd(date)}</div></div><b class="out">${tl(r.amount)}</b></div>
     <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="mini alt" data-recskip="${r.id}" data-mo="${mo}">Bu ay yok</button><button class="mini" data-recpay="${r.id}" data-mo="${mo}">Öde</button></div></div>`).join(''):''}
-  ${yak.length?'<h2>Bu ay yaklaşan</h2><div class="card">'+yak.map(r=>`<div class="row"><span>${esc(r.name)} <span class="mute">${fd(recDate(r,bu))}${r.auto?' · otomatik':''}</span></span><span>${tl(r.amount)}</span></div>`).join('')+'</div>':''}
+  ${rt.length?`<h2>Tekrar eden giderler</h2><div class="card rtab">`+rt.map(({r,date,st,amt})=>`<div class="rrow ${st}">
+      <div><div>${esc(r.name)}</div><div class="mute">${esc(r.cat)} · ${fd(date)}${r.auto?' · otomatik':''}</div></div>
+      <div class="rr"><b>${tl(amt)}</b>${st==='paid'?'<span class="chip in">Ödendi ✓</span>':st==='skip'?'<span class="chip">Atlandı</span>'
+        :st==='soon'?`<span class="chip">${r.auto?'Otomatik':'Yaklaşıyor'}</span>`
+        :`<span><button class="mini alt" data-recskip="${r.id}" data-mo="${month}">Yok</button><button class="mini" data-recpay="${r.id}" data-mo="${month}">Öde</button></span>`}</div></div>`).join('')
+    +`<div class="row rsum"><span class="mute">Toplam ${tl(rTop)}</span><span class="mute">Ödenen <b class="in">${tl(rPaid)}</b> · Kalan <b>${tl(rTop-rPaid)}</b></span></div></div>`:''}
   <div class="row"><div class="card" style="flex:1"><div class="mute">Gelir</div><b class="in">${tl(gelir)}</b></div>
     <div class="card" style="flex:1"><div class="mute">Gider</div><b class="out">${tl(gider)}</b></div></div>
   <div class="card"><div class="mute">Ay sonucu</div><b class="${gelir-gider<0?'out':'in'}">${tl(gelir-gider)}</b></div>
