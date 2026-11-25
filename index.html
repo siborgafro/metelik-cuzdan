@@ -11,66 +11,146 @@
 <link rel="icon" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Metelik Cüzdan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0f1b33;--card:#16264a;--line:#243659;--cream:#f3ead2;--gold:#d9a93b;--mute:#8b98b8;--red:#e5736b;--green:#6cc08b}
+/* Renkler logodan: lacivert zemin, krem, altın. Koyu tema bilinçli (Afro kararı). */
+:root{--bg:#0f1b33;--card:#16264a;--card2:#1b2d55;--line:#26395f;--cream:#f3ead2;--gold:#d9a93b;--gold-h:#e4b851;--mute:#9aa6c4;--red:#ef8a82;--green:#7fcf9c;--share:#5b6a8f;
+  --r-sm:6px;--r-md:8px;--r-lg:12px;--disp:'Bricolage Grotesque',system-ui,sans-serif;--body:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --navh:60px;--navb:env(safe-area-inset-bottom)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding-bottom:calc(150px + env(safe-area-inset-bottom))}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--cream);font:400 15px/1.45 var(--body);-webkit-font-smoothing:antialiased;
+  padding-bottom:calc(var(--navh) + var(--navb) + 96px)}
 /* ana ekrandan açılınca sayfa çentik ve durum çubuğunun altına uzanır; güvenli alan kadar boşluk bırak */
-main{max-width:520px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left))}
-h1{font-size:20px;margin:0 0 12px;color:var(--gold)}
-h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:22px 0 8px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+main{max-width:540px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left))}
+button{font:inherit;color:inherit;cursor:pointer}
+.ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.ico.s{width:14px;height:14px;vertical-align:-2px}
+h1{font:700 26px/1.1 var(--disp);letter-spacing:-.01em;margin:0 0 14px;color:var(--cream)}
+h2{font:500 13px/1.3 var(--body);color:var(--mute);margin:26px 0 8px}
+.brand{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+.brand img{width:30px;height:30px;border-radius:var(--r-sm)}
+.brand h1{margin:0;font-size:22px}
+.big,.stat b,.amt,.split b{font-family:var(--disp);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;margin-bottom:8px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mute{color:var(--mute);font-size:13px}
 .in{color:var(--green)}.out{color:var(--red)}
-.big{font-size:26px;font-weight:700}
-.bar{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}
+b{font-weight:500}
+/* üst özet: sayfanın tek baskın öğesi */
+.hero{background:var(--card2);border-color:#30467a;padding:16px 16px 14px;margin-bottom:10px}
+.hero .big{font-size:36px;font-weight:700;line-height:1.05;margin:4px 0 12px;color:var(--cream)}
+.split{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);padding-top:10px;gap:12px}
+.split>div+div{border-left:1px solid var(--line);padding-left:12px}
+.split b{display:block;font-size:17px;font-weight:700;margin-top:2px}
+.hero .extra{margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
+/* ay sonucu: üç sütunlu şerit, sonuç vurgulu */
+.stats{display:grid;grid-template-columns:1fr 1fr;padding:0;overflow:hidden}
+.stat{padding:12px 14px;min-width:0}
+.stat+.stat{border-left:1px solid var(--line)}
+.stat b{display:block;font-size:17px;font-weight:700;margin-top:2px;overflow-wrap:anywhere}
+.stat.res{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);background:var(--card2);display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.stat.res b{font-size:20px;margin:0}
+/* çubuklar */
+.bar{height:6px;border-radius:3px;background:var(--line);margin:8px 0 6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--gold)}
-.bar i.share{background:#5b6a8f}.bar i.ok{background:var(--green)}.bar i.over{background:var(--red)}
-/* iOS 26 ana ekran uygulamasında sayfa ekrandan kısaysa görünüm kısalıyor ve sabit menü yukarıda kalıyordu;
-   uzun (kaydırılabilir) sayfada sorun yok. JS sayfayı en az ekran yüksekliği kadar uzatır. */
-:root{--navb:max(env(safe-area-inset-bottom),12px)}
-html{background:var(--bg)}
-.glass{background:rgba(26,42,78,.5);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
-  border:1px solid rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.45)}
-nav{position:fixed;left:14px;right:14px;bottom:var(--navb);max-width:492px;margin:0 auto;display:flex;padding:5px;border-radius:999px;z-index:10}
-nav button{flex:1;background:none;border:0;color:var(--mute);padding:11px 0;font-size:14px;border-radius:999px;transition:background .2s,color .2s}
-nav button.on{color:var(--gold);font-weight:600;background:rgba(255,255,255,.11);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
-.fab{position:fixed;right:18px;bottom:calc(var(--navb) + 68px);width:56px;height:56px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:linear-gradient(180deg,#e6b956,#c99526);color:var(--bg);font-size:30px;font-weight:700;z-index:10;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 8px 22px rgba(0,0,0,.45)}
-.sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;z-index:20}
-.sheet.show{display:flex}
-.sheet form{background:var(--bg);width:100%;max-width:520px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:calc(100vh - env(safe-area-inset-top) - 12px);overflow:auto}
-label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
-input,select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--cream);font-size:16px}
+.bar i.share{background:var(--share)}.bar i.ok{background:var(--green)}.bar i.warn{background:var(--gold)}.bar i.over{background:var(--red)}
+/* liste: kart başına tek kayıt yerine gruplanmış defter görünümü */
+.list{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px;overflow:hidden}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 10px 11px 14px}
+.item+.item{border-top:1px solid var(--line)}
+.item .l{min-width:0}
+.item .r{display:flex;align-items:center;gap:2px;flex:none}
+.amt{font-weight:700;font-size:15px;white-space:nowrap}
+.cat-row{display:block;padding:12px 14px}
+.cat-row+.cat-row{border-top:1px solid var(--line)}
+/* alt menü: sabit, düz zemin, üst çizgi */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:#0c1629;border-top:1px solid var(--line);
+  padding:0 env(safe-area-inset-right) var(--navb) env(safe-area-inset-left)}
+nav .in-nav{max-width:540px;margin:0 auto;display:flex}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:var(--navh);justify-content:center;background:none;border:0;color:var(--mute);font-size:12px;position:relative;transition:color .15s}
+nav button .ico{width:22px;height:22px}
+nav button[aria-current="page"]{color:var(--gold);font-weight:500}
+nav button[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:28%;right:28%;height:2px;background:var(--gold);border-radius:0 0 2px 2px}
+nav button:hover{color:var(--cream)}
+nav button[aria-current="page"]:hover{color:var(--gold)}
+.fab{position:fixed;right:max(calc(18px + env(safe-area-inset-right)),calc((100vw - 540px)/2 + 18px));bottom:calc(var(--navh) + var(--navb) + 16px);width:56px;height:56px;border-radius:50%;border:0;background:var(--gold);color:var(--bg);z-index:10;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:background-color .15s,box-shadow .15s}
+.fab .ico{width:26px;height:26px;stroke-width:2.4}
+.fab:hover{background:var(--gold-h);box-shadow:0 8px 24px rgba(0,0,0,.55)}
+/* form paneli: alttan açılan <dialog>, Esc ile kapanır */
+dialog#sheet{border:0;padding:0;margin:auto auto 0;width:100%;max-width:540px;background:transparent;color:var(--cream);max-height:calc(100dvh - env(safe-area-inset-top) - 12px)}
+dialog#sheet::backdrop{background:rgba(3,8,20,.7)}
+dialog#sheet form{background:var(--bg);border:1px solid var(--line);border-bottom:0;border-radius:var(--r-lg) var(--r-lg) 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));max-height:calc(100dvh - env(safe-area-inset-top) - 12px);overflow:auto}
+dialog#sheet[open]{animation:up .2s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.ftitle{font:700 18px/1.2 var(--disp);display:block;margin-bottom:4px}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 5px}
+input,select{width:100%;padding:11px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);color:var(--cream);font:400 16px var(--body);transition:border-color .15s}
+input:hover,select:hover{border-color:#3a5283}
+input:user-invalid{border-color:var(--red)}
+input::placeholder{color:#8591ae}
 .seg{display:flex;gap:6px}
-.seg button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--mute)}
-.seg button.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:600}
-.btn{width:100%;padding:13px;border-radius:12px;border:0;background:var(--gold);color:var(--bg);font-size:16px;font-weight:700;margin-top:14px}
-.btn.alt{background:var(--card);color:var(--cream);border:1px solid var(--line)}
-.del{background:none;border:0;color:var(--mute);font-size:18px;padding:4px 8px}
-.mini{background:var(--gold);color:var(--bg);border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:14px}
-.mini.alt{background:var(--card);color:var(--mute);border:1px solid var(--line);margin-right:8px}
-[data-editrec]{cursor:pointer}
+.seg button{flex:1;padding:10px 6px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);color:var(--mute);font-size:14px;transition:background-color .15s,color .15s}
+.seg button.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:500}
+.btn{width:100%;padding:13px;border-radius:var(--r-sm);border:0;background:var(--gold);color:var(--bg);font-size:15px;font-weight:500;margin-top:14px;transition:background-color .15s}
+.btn:hover{background:var(--gold-h)}
+.btn.alt{background:transparent;color:var(--cream);border:1px solid var(--line)}
+.btn.alt:hover{background:var(--card)}
+.btn.add{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 6px}
+.del{background:none;border:0;color:var(--mute);padding:8px;border-radius:var(--r-sm);display:inline-flex;transition:color .15s,background-color .15s}
+.del:hover{color:var(--red);background:var(--card2)}
+.mini{background:var(--gold);color:var(--bg);border:0;border-radius:var(--r-sm);padding:7px 12px;font-weight:500;font-size:14px;transition:background-color .15s}
+.mini:hover{background:var(--gold-h)}
+.mini.alt{background:transparent;color:var(--cream);border:1px solid var(--line);margin-right:6px}
+.mini.alt:hover{background:var(--card2)}
+/* düzenlenebilir satır başlığı: gerçek buton */
+.hit{background:none;border:0;padding:0;text-align:left;display:block;min-width:0;border-radius:var(--r-sm)}
+.hit .t{display:flex;align-items:center;gap:6px;font-weight:500}
+.hit .t .ico{color:var(--mute)}
+.hit:hover .t .ico{color:var(--gold)}
+.hit .mute{display:block}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.cat{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 3px 3px 12px;font-size:14px}
-.cat button{background:none;border:0;color:var(--mute);font-size:12px;padding:4px 8px}
-.rtab{padding:4px 14px}
-.rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.rrow.skip{opacity:.5}.rr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.chip{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:2px 8px}.chip.in{color:var(--green);border-color:#2f5a44}
-.rsum{padding:10px 0 8px;flex-wrap:wrap}
-.stmt{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;display:grid;gap:4px}
-[data-editacc]{cursor:pointer}
-.month{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.month button{width:40px;height:40px;border-radius:50%;color:var(--cream);font-size:20px;line-height:1;padding:0 0 2px}
+.cat{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 2px 2px 12px;font-size:14px}
+.cat button{background:none;border:0;color:var(--mute);padding:6px 8px;border-radius:999px;display:inline-flex}
+.cat button:hover{color:var(--red)}
+.rtab{padding:0}
+.rrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.rrow.skip .l,.rrow.skip .amt{opacity:.55}.rr{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:2px 8px}.chip.in{color:var(--green);border-color:#2f5a44}
+.rsum{padding:11px 14px;flex-wrap:wrap;background:var(--card2)}
+.stmt{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:grid;gap:6px}
+.month{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px}
+.month b{font:500 16px var(--disp);text-transform:capitalize}
+.month button{width:40px;height:40px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;transition:background-color .15s}
+.month button:hover{background:var(--card2)}
+.empty{padding:18px 14px;text-align:center}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+input:focus-visible,select:focus-visible{outline-offset:0;border-color:var(--gold)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <main id="app"></main>
-<button class="fab" id="fab" aria-label="İşlem ekle">+</button>
-<nav id="nav" class="glass"></nav>
-<div class="sheet" id="sheet"><form id="form"></form></div>
+<button class="fab" id="fab" aria-label="İşlem ekle"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></button>
+<nav id="nav" aria-label="Bölümler"></nav>
+<dialog id="sheet" aria-label="Kayıt formu"><form id="form"></form></dialog>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+<symbol id="i-ozet" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></symbol>
+<symbol id="i-islem" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-hesap" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M16 15h2"/></symbol>
+<symbol id="i-ayar" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+</svg>
 
 <script>
 /* varsayılanlar; kullanıcı Ayarlar'dan ekler/siler, liste S.cats içinde saklanır */
@@ -166,10 +246,17 @@ async function connect(c){
   else{salt=crypto.getRandomValues(new Uint8Array(16));c.key=await deriveKey(c.pass,salt)}
   delete c.pass;c.salt=b64(salt);SY.cfg=c;await kvPut('sync',c);await sync()}
 function syncBadge(){const el=$('#syncst');if(!el)return;
-  el.innerHTML=SY.busy?'Eşitleniyor…':SY.err?`<span class="out">${esc(SY.err)}</span>`:SY.last?`Son eşitleme ${SY.last.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} ✓`:'Henüz eşitlenmedi'}
+  el.innerHTML=SY.busy?'Eşitleniyor…':SY.err?`<span class="out">${icon('alert','s')} ${esc(SY.err)}</span>`:SY.last?`<span class="in">${icon('check','s')}</span> Son eşitleme ${SY.last.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}`:'Henüz eşitlenmedi'}
 
 /* --- yardımcılar --- */
 const $=s=>document.querySelector(s);
+const icon=(n,c='')=>`<svg class="ico ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+/* <label> hemen ardındaki alana bağlanır (ekran okuyucu + dokununca odak) */
+let lid=0;function linkLabels(root){root.querySelectorAll('label:not([for])').forEach(l=>{if(l.querySelector('input,select'))return;
+  let n=l.nextElementSibling;const f=n&&(n.matches('input,select')?n:n.querySelector('input:not([type=hidden]),select'));
+  if(f){f.id||=`f${++lid}`;l.htmlFor=f.id}})}
+function openSheet(){const d=$('#sheet');linkLabels(d);if(!d.open)d.showModal()}
+function closeSheet(){const d=$('#sheet');if(d.open)d.close()}
 const id=()=>Math.random().toString(36).slice(2,10);
 /* yerel tarih: toISOString UTC verir, gece yarısından sonra bir önceki güne düşerdi */
 const today=()=>{const t=new Date();return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`};
@@ -225,12 +312,14 @@ function pendingRecs(){
 }
 function render(){
   pendingRecs();
-  $('#nav').innerHTML=[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('');
-  $('#fab').style.display=tab==='ayar'?'none':'block';
+  $('#nav').innerHTML='<div class="in-nav">'+[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button data-tab="${k}"${tab===k?' aria-current="page"':''}>${icon(k)}<span>${l}</span></button>`).join('')+'</div>';
+  $('#fab').style.display=tab==='ayar'?'none':'flex';
+  $('#fab').setAttribute('aria-label',tab==='hesap'?'Hesap ekle':'İşlem ekle');
   $('#app').innerHTML=({ozet,islem,hesap,ayar})[tab]();
+  linkLabels($('#app'));
   syncBadge();
 }
-function monthBar(){return `<div class="month"><button class="glass" data-m="-1" aria-label="Önceki ay">‹</button><b>${monthLabel(month)}</b><button class="glass" data-m="1" aria-label="Sonraki ay">›</button></div>`}
+function monthBar(){return `<div class="month"><button data-m="-1" aria-label="Önceki ay">${icon('left')}</button><b aria-live="polite">${monthLabel(month)}</b><button data-m="1" aria-label="Sonraki ay">${icon('right')}</button></div>`}
 const inMonth=()=>S.tx.filter(t=>t.date.startsWith(month));
 
 function ozet(){
@@ -254,63 +343,66 @@ function ozet(){
     const st=tx?'paid':(r.done||[]).includes(month)?'skip':date>today()?'soon':'wait';
     return {r,date,st,amt:tx?tx.amount:r.amount}}).sort((a,b)=>a.date.localeCompare(b.date));
   const rTop=rt.filter(x=>x.st!=='skip').reduce((s,x)=>s+x.amt,0),rPaid=rt.filter(x=>x.st==='paid').reduce((s,x)=>s+x.amt,0);
-  return `<h1>Metelik Cüzdan</h1>${monthBar()}
-  <div class="card"><div class="mute">Varlık (nakit + banka)</div><div class="big">${tl(varlik)}</div>
-    <div class="row mute"><span>Kart borcu: <b class="out">${tl(-borc)}</b></span><span>Gelecek taksit: ${tl(gelecek)}</span></div>
-    ${yemekler.length?`<div class="mute">Yemek kartı: <b class="${yemek<0?'out':'in'}">${tl(yemek)}</b></div>`:''}</div>
-  ${odeme.length?'<h2>Kart ödemeleri</h2>'+odeme.map(({a,e})=>`<div class="card row"><div><b>${esc(a.name)}</b>
-    <div class="mute ${e.late?'out':''}">Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
-    <div class="row"><b class="out">${tl(e.rem)}</b><button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join(''):''}
-  ${bek.length?'<h2>Ödeme bekleyen</h2>'+bek.map(({r,mo,date})=>`<div class="card"><div class="row"><div><b>${esc(r.name)}</b>
-    <div class="mute">${esc(r.cat)} · ${fd(date)}</div></div><b class="out">${tl(r.amount)}</b></div>
-    <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="mini alt" data-recskip="${r.id}" data-mo="${mo}">Bu ay yok</button><button class="mini" data-recpay="${r.id}" data-mo="${mo}">Öde</button></div></div>`).join(''):''}
+  const sonuc=gelir-gider;
+  return `<div class="brand"><img src="icon.svg" alt=""><h1>Metelik Cüzdan</h1></div>${monthBar()}
+  <section class="card hero" aria-label="Varlık ve borç"><div class="mute">Varlık · nakit + banka</div><div class="big">${tl(varlik)}</div>
+    <div class="split"><div><span class="mute">Kart borcu</span><b class="${borc<0?'out':''}">${tl(-borc)}</b></div><div><span class="mute">Gelecek taksit</span><b>${tl(gelecek)}</b></div></div>
+    ${yemekler.length?`<div class="extra row"><span class="mute">Yemek kartı</span><b class="${yemek<0?'out':''}">${tl(yemek)}</b></div>`:''}</section>
+  <div class="card stats" role="group" aria-label="Bu ayın sonucu"><div class="stat"><span class="mute">Gelir</span><b class="in">+${tl(gelir)}</b></div>
+    <div class="stat"><span class="mute">Gider</span><b class="out">−${tl(gider)}</b></div>
+    <div class="stat res"><span class="mute">Ay sonucu</span><b class="${sonuc<0?'out':'in'}">${sonuc<0?'−':'+'}${tl(Math.abs(sonuc))}</b></div></div>
+  ${odeme.length?'<h2>Kart ödemeleri</h2><div class="list">'+odeme.map(({a,e})=>`<div class="item"><div class="l"><b>${esc(a.name)}</b>
+    <div class="mute ${e.late?'out':''}">${e.late?icon('alert','s')+' ':''}Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
+    <div class="r"><span class="amt out">${tl(e.rem)}</span>&nbsp;<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join('')+'</div>':''}
+  ${bek.length?'<h2>Ödeme bekleyen</h2><div class="list">'+bek.map(({r,mo,date})=>`<div class="item" style="flex-wrap:wrap"><div class="l"><b>${esc(r.name)}</b>
+    <div class="mute">${esc(r.cat)} · ${fd(date)}</div></div><span class="amt out">${tl(r.amount)}</span>
+    <div class="row" style="justify-content:flex-end;width:100%"><button class="mini alt" data-recskip="${r.id}" data-mo="${mo}">Bu ay yok</button><button class="mini" data-recpay="${r.id}" data-mo="${mo}">Öde</button></div></div>`).join('')+'</div>':''}
   ${rt.length?`<h2>Tekrar eden giderler</h2><div class="card rtab">`+rt.map(({r,date,st,amt})=>`<div class="rrow ${st}">
-      <div><div>${esc(r.name)}</div><div class="mute">${esc(r.cat)} · ${fd(date)}${r.auto?' · otomatik':''}</div></div>
-      <div class="rr"><b>${tl(amt)}</b>${st==='paid'?'<span class="chip in">Ödendi ✓</span>':st==='skip'?'<span class="chip">Atlandı</span>'
+      <div class="l"><div>${esc(r.name)}</div><div class="mute">${esc(r.cat)} · ${fd(date)}${r.auto?' · otomatik':''}</div></div>
+      <div class="rr"><span class="amt">${tl(amt)}</span>${st==='paid'?`<span class="chip in">${icon('check','s')}Ödendi</span>`:st==='skip'?'<span class="chip">Atlandı</span>'
         :st==='soon'?`<span class="chip">${r.auto?'Otomatik':'Yaklaşıyor'}</span>`
         :`<span><button class="mini alt" data-recskip="${r.id}" data-mo="${month}">Yok</button><button class="mini" data-recpay="${r.id}" data-mo="${month}">Öde</button></span>`}</div></div>`).join('')
     +`<div class="row rsum"><span class="mute">Toplam ${tl(rTop)}</span><span class="mute">Ödenen <b class="in">${tl(rPaid)}</b> · Kalan <b>${tl(rTop-rPaid)}</b></span></div></div>`:''}
-  <div class="row"><div class="card" style="flex:1"><div class="mute">Gelir</div><b class="in">${tl(gelir)}</b></div>
-    <div class="card" style="flex:1"><div class="mute">Gider</div><b class="out">${tl(gider)}</b></div></div>
-  <div class="card"><div class="mute">Ay sonucu</div><b class="${gelir-gider<0?'out':'in'}">${tl(gelir-gider)}</b></div>
   <h2>Kategoriler</h2>
-  ${bt?`<div class="card"><div class="row"><span>Bütçe</span><b class="${bs>bt?'out':''}">${tl(bs)} <span class="mute">/ ${tl(bt)}</span></b></div>${bar(bs,bt)}
+  ${bt?`<div class="card"><div class="row"><b>Toplam bütçe</b><span class="amt ${bs>bt?'out':''}">${tl(bs)} <span class="mute">/ ${tl(bt)}</span></span></div>${bar(bs,bt)}
     <div class="mute ${bs>bt?'out':''}">${bs>bt?tl(bs-bt)+' aşıldı':tl(bt-bs)+' kaldı'}${gecen!==null?` · ayın %${gecen}'i geçti`:''}</div></div>`:''}
-  ${cl.length?cl.map(([c,v])=>{const l=B[c];return `<div class="card"><div class="row"><span>${esc(c)}</span><b class="${l&&v>l?'out':''}">${tl(v)}${l?` <span class="mute">/ ${tl(l)}</span>`:''}</b></div>
+  ${cl.length?'<div class="list">'+cl.map(([c,v])=>{const l=B[c];return `<div class="cat-row"><div class="row"><span>${esc(c)}</span><span class="amt ${l&&v>l?'out':''}">${tl(v)}${l?` <span class="mute">/ ${tl(l)}</span>`:''}</span></div>
     ${l?bar(v,l)+`<div class="mute ${v>l?'out':''}">${v>l?tl(v-l)+' aşıldı':'%'+Math.round(v/l*100)+' · '+tl(l-v)+' kaldı'}</div>`
-      :`<div class="bar"><i class="share" style="width:${gider?Math.round(v/gider*100):0}%"></i></div>`}</div>`}).join(''):'<div class="mute">Bu ay gider yok.</div>'}`;
+      :`<div class="bar" title="Giderlerin %${gider?Math.round(v/gider*100):0}'i"><i class="share" style="width:${gider?Math.round(v/gider*100):0}%"></i></div><div class="mute">Giderlerin %${gider?Math.round(v/gider*100):0}'i · limit yok</div>`}</div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay gider yok.</div>'}`;
 }
 function bar(v,l){const p=v/l;return `<div class="bar"><i class="${p>1?'over':p>=.8?'warn':'ok'}" style="width:${Math.min(100,Math.round(p*100))}%"></i></div>`}
 function islem(){
   const m=inMonth().sort((a,b)=>b.date.localeCompare(a.date));
-  const rl=S.recurring.map(r=>`<div class="card row"><div data-editrec="${r.id}"><b>${esc(r.name)}</b> <span class="mute">✎</span>
-    <div class="mute">${esc(r.cat)} · ayın ${r.day}. günü · ${esc(acc(r.acc)?.name||'hesap yok')}${r.auto?' · otomatik':''}</div></div>
-    <div class="row"><b>${tl(r.amount)}</b><button class="del" data-delrec="${r.id}">✕</button></div></div>`).join('');
-  return `<h1>İşlemler</h1><h2>Tekrar eden giderler</h2>${rl}<button class="btn alt" style="margin:0 0 6px" data-act="newrec">+ Tekrar eden gider (fatura, abonelik)</button>
-  <h2>Aylık işlemler</h2>${monthBar()}`+(m.length?m.map(t=>{
+  const rl=S.recurring.map(r=>`<div class="item"><button type="button" class="hit l" data-editrec="${r.id}" aria-label="${esc(r.name)} düzenle"><span class="t">${esc(r.name)} ${icon('edit','s')}</span>
+    <span class="mute">${esc(r.cat)} · ayın ${r.day}. günü · ${esc(acc(r.acc)?.name||'hesap yok')}${r.auto?' · otomatik':''}</span></button>
+    <div class="r"><span class="amt">${tl(r.amount)}</span><button class="del" data-delrec="${r.id}" aria-label="${esc(r.name)} sil">${icon('x')}</button></div></div>`).join('');
+  return `<h1>İşlemler</h1><h2>Tekrar eden giderler</h2>${rl?'<div class="list">'+rl+'</div>':''}<button class="btn alt add" data-act="newrec">${icon('plus')}Tekrar eden gider (fatura, abonelik)</button>
+  <h2>Aylık işlemler</h2>${monthBar()}`+(m.length?'<div class="list">'+m.map(t=>{
     const a=acc(t.acc),cls=t.type==='gelir'?'in':t.type==='gider'?'out':'';const sign=t.type==='gelir'?'+':t.type==='gider'?'−':'';
     const sub=t.type==='transfer'?`${esc(a?.name)} → ${esc(acc(t.to)?.name)}`:`${esc(t.cat)} · ${esc(a?.name)}`;
-    return `<div class="card row"><div><div>${esc(t.note||(t.type==='transfer'?'Transfer / kart ödemesi':t.cat))}${t.inst?` <span class="mute">(${t.inst.n}/${t.inst.total} taksit)</span>`:''}${t.rec?' <span class="mute">↻</span>':''}</div>
+    const ad=esc(t.note||(t.type==='transfer'?'Transfer / kart ödemesi':t.cat));
+    return `<div class="item"><div class="l"><div>${ad}${t.inst?` <span class="mute">(${t.inst.n}/${t.inst.total} taksit)</span>`:''}${t.rec?` <span class="mute" title="Tekrar eden gider">${icon('repeat','s')}</span>`:''}</div>
       <div class="mute">${t.date.split('-').reverse().join('.')} · ${sub}</div></div>
-      <div class="row"><b class="${cls}">${sign}${tl(t.amount)}</b><button class="del" data-del="${t.id}">✕</button></div></div>`}).join(''):'<div class="mute">Bu ay işlem yok.</div>');
+      <div class="r"><span class="amt ${cls}">${sign}${tl(t.amount)}</span><button class="del" data-del="${t.id}" aria-label="${ad} sil">${icon('x')}</button></div></div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay işlem yok.</div>');
 }
 function hesap(){
   return `<h1>Hesaplar</h1>`+S.accounts.map(a=>{
     const b=balance(a.id),k=a.type==='kart',e=ekstre(a);
-    return `<div class="card"><div class="row"><div data-editacc="${a.id}"><b>${esc(a.name)}</b> <span class="mute">✎</span><div class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}${e?` · kesim ${a.cut}`:''}</div></div>
-      <div class="row"><b class="${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</b><button class="del" data-delacc="${a.id}">✕</button></div></div>
+    return `<div class="card"><div class="row"><button type="button" class="hit" data-editacc="${a.id}" aria-label="${esc(a.name)} düzenle"><span class="t">${esc(a.name)} ${icon('edit','s')}</span><span class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}${e?` · kesim ${a.cut}`:''}</span></button>
+      <div class="r row" style="gap:2px"><span class="amt ${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</span><button class="del" data-delacc="${a.id}" aria-label="${esc(a.name)} sil">${icon('x')}</button></div></div>
       ${k?`<div class="mute">Gelecek taksit: ${tl(futureInstallments(a.id))}${a.limit?` · kullanılabilir ${tl(a.limit+b-futureInstallments(a.id))}`:''}</div>`:''}
       ${e?`<div class="stmt"><div class="row"><span>Ekstre ${fd(e.lc)}: <b>${tl(e.stmt)}</b></span><span class="mute">Son ödeme ${fd(e.due)}</span></div>
-        <div class="row"><span class="${e.late?'out':e.rem?'':'in'}">${e.rem?`Kalan ${tl(e.rem)}${e.late?' · GECİKMİŞ':''}`:'Ekstre ödendi ✓'}</span>${e.rem?`<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button>`:''}</div>
+        <div class="row"><span class="${e.late?'out':e.rem?'':'in'}">${e.rem?`${e.late?icon('alert','s')+' ':''}Kalan ${tl(e.rem)}${e.late?' · gecikmiş':''}`:`${icon('check','s')} Ekstre ödendi`}</span>${e.rem?`<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button>`:''}</div>
         <div class="mute">Dönem içi harcama: ${tl(e.donem)} · Sonraki ekstre (${fd(e.nc)}): ${tl(e.sonraki)}</div></div>`
       :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')
-    +`<button class="btn" data-act="newacc">Hesap ekle</button>`;
+    +(S.accounts.length?'':'<div class="card mute empty">Henüz hesap yok. Nakit, banka veya kartınızı ekleyerek başlayın.</div>')
+    +`<button class="btn add" data-act="newacc">${icon('plus')}Hesap ekle</button>`;
 }
 function syncCard(){
-  if(SY.cfg)return `<div class="card"><b>Senkron</b><div class="mute">${esc(SY.cfg.owner)}/${esc(SY.cfg.repo)} · şifreli</div>
+  if(SY.cfg)return `<div class="card"><b class="ftitle">Senkron</b><div class="mute">${esc(SY.cfg.owner)}/${esc(SY.cfg.repo)} · şifreli</div>
     <div id="syncst" class="mute" style="margin-top:6px"></div>
     <button class="btn" data-act="syncnow">Şimdi eşitle</button><button class="btn alt" data-act="syncoff">Bu cihazda bağlantıyı kes</button></div>`;
-  return `<div class="card"><b>Senkron</b><div class="mute">Telefon ve bilgisayar aynı veriyi görsün. Veri bu cihazda şifrelenip özel GitHub reponuza yazılır.</div>
+  return `<div class="card"><b class="ftitle">Senkron</b><div class="mute">Telefon ve bilgisayar aynı veriyi görsün. Veri bu cihazda şifrelenip özel GitHub reponuza yazılır.</div>
   <form id="sform"><label>GitHub kullanıcı adı</label><input name="owner" value="siborgafro" autocapitalize="off" autocorrect="off" spellcheck="false" required>
   <label>Repo</label><input name="repo" value="metelik-veri" autocapitalize="off" autocorrect="off" spellcheck="false" required>
   <label>Erişim anahtarı (token)</label><input name="token" type="password" autocomplete="off" required>
@@ -319,14 +411,14 @@ function syncCard(){
   <div id="sform-st" class="mute" style="margin-top:6px"></div><button class="btn" type="submit">Bağlan</button></form></div>`}
 function ayar(){
   const B=S.budgets||{};
-  return `<h1>Ayarlar</h1>${syncCard()}<div class="card"><b>Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
+  return `<h1>Ayarlar</h1>${syncCard()}<div class="card"><b class="ftitle">Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
   ${['gider','gelir'].map(t=>`<label>${t==='gider'?'Gider':'Gelir'}</label>
-    <div class="chips">${KAT(t).map(c=>`<span class="cat">${esc(c)}<button data-delcat="${esc(c)}" data-ct="${t}" aria-label="${esc(c)} sil">✕</button></span>`).join('')}</div>
-    <div class="row" style="margin-top:8px"><input id="newcat-${t}" maxlength="24" placeholder="${t==='gider'?'Örn. Elektrik, Su, İnternet':'Örn. Kira geliri'}" style="flex:1"><button class="mini" data-addcat="${t}">Ekle</button></div>`).join('')}</div>
-  <div class="card"><b>Aylık bütçe limitleri</b><div class="mute">Her ay için geçerli. Boş bırakılan kategoride limit yok. Taksitler ödendiği ayın bütçesine yazılır.</div>
+    <div class="chips">${KAT(t).map(c=>`<span class="cat">${esc(c)}<button data-delcat="${esc(c)}" data-ct="${t}" aria-label="${esc(c)} sil">${icon('x','s')}</button></span>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><input id="newcat-${t}" maxlength="24" aria-label="Yeni ${t} kategorisi" placeholder="${t==='gider'?'Örn. Elektrik, Su, İnternet':'Örn. Kira geliri'}" style="flex:1"><button class="mini" data-addcat="${t}">Ekle</button></div>`).join('')}</div>
+  <div class="card"><b class="ftitle">Aylık bütçe limitleri</b><div class="mute">Her ay için geçerli. Boş bırakılan kategoride limit yok. Taksitler ödendiği ayın bütçesine yazılır.</div>
   <form id="bform">${KAT('gider').map(c=>`<label>${esc(c)}</label><input name="${esc(c)}" inputmode="decimal" placeholder="Limit yok" value="${kurusStr(B[c])}">`).join('')}
   <button class="btn" type="submit">Bütçeyi kaydet</button></form></div>
-  <div class="card"><b>Yedek</b><div class="mute">iOS kullanılmayan web uygulama verisini silebilir. Düzenli yedek alın.</div>
+  <div class="card"><b class="ftitle">Yedek</b><div class="mute">iOS kullanılmayan web uygulama verisini silebilir. Düzenli yedek alın.</div>
   <button class="btn" data-act="export">Verileri dışa aktar (JSON)</button>
   <button class="btn alt" data-act="import">Yedekten içe aktar</button>
   <input type="file" id="file" accept="application/json" hidden></div>`;
@@ -336,12 +428,12 @@ function ayar(){
 let F={type:'gider'};
 function openTx(){
   if(!S.accounts.length){alert('Önce bir hesap ekleyin.');tab='hesap';render();return}
-  F={type:'gider'};drawTx();$('#sheet').classList.add('show');
+  F={type:'gider'};drawTx();openSheet();
 }
 function drawTx(){
   const t=F.type,opts=S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   const card=acc(F.acc||S.accounts[0].id)?.type==='kart';
-  $('#form').innerHTML=`<div class="seg">${['gider','gelir','transfer'].map(k=>`<button type="button" data-ftype="${k}" class="${t===k?'on':''}">${{gider:'Gider',gelir:'Gelir',transfer:'Transfer / Kart ödemesi'}[k]}</button>`).join('')}</div>
+  $('#form').innerHTML=`<div class="seg" role="group" aria-label="İşlem türü">${['gider','gelir','transfer'].map(k=>`<button type="button" data-ftype="${k}" class="${t===k?'on':''}" aria-pressed="${t===k}">${{gider:'Gider',gelir:'Gelir',transfer:'Transfer / Kart'}[k]}</button>`).join('')}</div>
   <label>Tutar (TL)</label><input name="amount" inputmode="decimal" required placeholder="0,00" autofocus>
   <label>${t==='transfer'?'Açıklama':'Ad'}</label><input name="note" placeholder="${t==='gider'?'Örn. Migros, Netflix, Elektrik':t==='gelir'?'Örn. Ekim maaşı':'İsteğe bağlı'}">
   <label>${t==='transfer'?'Kaynak hesap':'Hesap'}</label><select name="acc">${opts}</select>
@@ -355,6 +447,7 @@ function drawTx(){
   if(F.cat&&$('#form [name=cat]'))$('#form [name=cat]').value=F.cat;
   if(F.note)$('#form [name=note]').value=F.note;
   if(F.date)$('#form [name=date]').value=F.date;
+  linkLabels($('#form'));
 }
 /* silinmiş bir kategori düzenlenen kayıtta hâlâ seçili kalabilsin */
 function catOpts(t,sel){const L=KAT(t).includes(sel)||!sel?KAT(t):[...KAT(t),sel];
@@ -363,11 +456,11 @@ function openRecPay(rid,mo){
   if(!S.accounts.length){alert('Önce bir hesap ekleyin.');return}
   const r=S.recurring.find(x=>x.id===rid);
   F={type:'gider',acc:acc(r.acc)?r.acc:undefined,amount:r.amount,cat:r.cat,note:r.name,date:recDate(r,mo),rec:r.id,recMo:mo};
-  drawTx();$('#sheet').classList.add('show');
+  drawTx();openSheet();
 }
 function openRec(r){
   if(!S.accounts.length){alert('Önce bir hesap ekleyin.');tab='hesap';render();return}
-  $('#form').innerHTML=`<b>Tekrar eden gider</b>
+  $('#form').innerHTML=`<b class="ftitle">${r?'Tekrar eden gideri düzenle':'Tekrar eden gider'}</b>
   <label>Ad</label><input name="name" required placeholder="Örn. Netflix, Elektrik, Telefon" value="${esc(r?.name)}">
   <label>Tutar (TL) — değişen faturalarda tahmini tutar</label><input name="amount" inputmode="decimal" required placeholder="0,00" value="${kurusStr(r?.amount)}">
   <label>Kategori</label><select name="cat">${catOpts('gider',r?.cat||'Fatura')}</select>
@@ -376,29 +469,29 @@ function openRec(r){
   <label style="display:flex;gap:10px;align-items:center;color:var(--cream);font-size:15px;margin-top:14px"><input type="checkbox" name="auto" style="width:auto" ${r?.auto?'checked':''}> Günü gelince otomatik ekle</label>
   <div class="mute">Sabit tutarlı aboneliklerde açın. Fatura gibi değişen tutarlarda kapalı bırakın: günü gelince Özet'te tutarı onaylarsınız.${r?'':' Günü bu ay geçtiyse ilk kayıt gelecek ay.'}</div>
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
-  $('#form').dataset.kind='rec';$('#form').dataset.edit=r?.id||'';$('#sheet').classList.add('show');
+  $('#form').dataset.kind='rec';$('#form').dataset.edit=r?.id||'';openSheet();
 }
 function openPay(cardId,amount){
   const src=S.accounts.find(a=>a.type==='banka')||S.accounts.find(a=>a.type==='nakit');
-  F={type:'transfer',to:cardId,amount,acc:src?.id};drawTx();$('#form [name=note]').value=acc(cardId).name+' ekstre ödemesi';$('#sheet').classList.add('show');
+  F={type:'transfer',to:cardId,amount,acc:src?.id};drawTx();$('#form [name=note]').value=acc(cardId).name+' ekstre ödemesi';openSheet();
 }
 const kurusStr=k=>k?(k/100).toFixed(2).replace('.',','):'';
 function openAcc(a){
   /* iPhone ondalık klavyesinde eksi tuşu yok; işaret ayrı seçilir */
   const neg=a?a.opening<0:false;
-  $('#form').innerHTML=`<label>Hesap adı</label><input name="name" required placeholder="Örn. Ziraat, Cüzdan, Bonus Kart" value="${esc(a?.name)}">
+  $('#form').innerHTML=`<b class="ftitle">${a?'Hesabı düzenle':'Yeni hesap'}</b><label>Hesap adı</label><input name="name" required placeholder="Örn. Ziraat, Cüzdan, Bonus Kart" value="${esc(a?.name)}">
   <label>Tür</label><select name="type">${Object.entries(TIP).map(([k,v])=>`<option value="${k}" ${a?.type===k?'selected':''}>${v}</option>`).join('')}</select>
   <label>Açılış bakiyesi (TL)</label>
   <div class="row"><input name="opening" inputmode="decimal" placeholder="0,00" value="${kurusStr(Math.abs(a?.opening||0))}" style="flex:1">
     <input type="hidden" name="sign" value="${neg?'-1':'1'}">
-    <div class="seg" style="flex:0 0 132px"><button type="button" data-sign="1" class="${neg?'':'on'}">+</button><button type="button" data-sign="-1" class="${neg?'on':''}">−</button></div></div>
+    <div class="seg" style="flex:0 0 132px" role="group" aria-label="Bakiye işareti"><button type="button" data-sign="1" class="${neg?'':'on'}" aria-label="Artı" aria-pressed="${!neg}">+</button><button type="button" data-sign="-1" class="${neg?'on':''}" aria-label="Eksi" aria-pressed="${neg}">−</button></div></div>
   <div class="mute" id="signhint">${a?.type==='kart'?'Kart borcu varsa − seçin.':'Ek hesap / eksi bakiye için − seçin.'}</div>
   <div id="kartbox" style="${a?.type==='kart'?'':'display:none'}">
   <label>Kart limiti (isteğe bağlı)</label><input name="limit" inputmode="decimal" value="${kurusStr(a?.limit)}">
   <label>Hesap kesim günü (1–31)</label><input name="cut" type="number" min="1" max="31" value="${a?.cut||''}" placeholder="Örn. 15">
   <label>Son ödeme: kesimden kaç gün sonra</label><input name="dueDays" type="number" min="1" max="31" value="${a?.dueDays??10}"></div>
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
-  $('#form').dataset.kind='acc';$('#form').dataset.edit=a?.id||'';$('#sheet').classList.add('show');
+  $('#form').dataset.kind='acc';$('#form').dataset.edit=a?.id||'';openSheet();
 }
 
 $('#form').addEventListener('submit',async e=>{
@@ -438,7 +531,7 @@ $('#form').addEventListener('submit',async e=>{
         if(prev<=l&&sp>l)warn=`${base.cat} bütçesi ${tl(sp-l)} aşıldı.`;else if(prev<l*.8&&sp>=l*.8)warn=`${base.cat} bütçesinin %${Math.round(sp/l*100)}'i kullanıldı.`}
     }
   }
-  e.target.dataset.kind='';$('#sheet').classList.remove('show');await save();render();
+  e.target.dataset.kind='';closeSheet();await save();render();
   if(warn)setTimeout(()=>alert(warn),50);
 });
 document.addEventListener('submit',async e=>{
@@ -472,7 +565,7 @@ document.addEventListener('click',async e=>{
     if(!confirm(`"${d.delcat}" kategorisi silinsin mi?`))return;
     S.cats[d.ct]=L.filter(c=>c!==d.delcat);if(d.ct==='gider')delete S.budgets[d.delcat];await save();render();return}
   if(d.pay)return openPay(d.pay,Number(d.amt));
-  if(d.sign){$('#form [name=sign]').value=d.sign;el.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));return}
+  if(d.sign){$('#form [name=sign]').value=d.sign;el.parentNode.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b===el);b.setAttribute('aria-pressed',b===el)});return}
   if(el.id==='fab')return d.act||(tab==='hesap'?openAcc():openTx());
   if(d.tab){tab=d.tab;render()}
   else if(d.m){const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+Number(d.m),1)).toISOString().slice(0,7);render()}
@@ -483,7 +576,7 @@ document.addEventListener('click',async e=>{
     await save();render()}
   else if(d.delacc){if(confirm('Hesap ve tüm işlemleri silinsin mi?')){S.tx=S.tx.filter(t=>t.acc!==d.delacc&&t.to!==d.delacc);S.accounts=S.accounts.filter(a=>a.id!==d.delacc);await save();render()}}
   else if(d.act==='newacc')openAcc();
-  else if(d.act==='close'){$('#form').dataset.kind='';$('#sheet').classList.remove('show')}
+  else if(d.act==='close'){$('#form').dataset.kind='';closeSheet()}
   else if(d.act==='export'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download=`metelik-yedek-${today()}.json`;a.click()}
   else if(d.act==='import')$('#file').click();
 });
@@ -498,6 +591,8 @@ document.addEventListener('change',async e=>{
 });
 
 month=today().slice(0,7);
+$('#sheet').addEventListener('close',()=>{$('#form').dataset.kind=''});
+$('#sheet').addEventListener('click',e=>{if(e.target===$('#sheet'))closeSheet()});
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches){
   const fill=()=>{document.body.style.minHeight=(innerWidth>innerHeight?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height))+1+'px'};
   fill();addEventListener('resize',fill);
