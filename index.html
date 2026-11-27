@@ -421,7 +421,9 @@ function ayar(){
   <div class="card"><b class="ftitle">Yedek</b><div class="mute">iOS kullanılmayan web uygulama verisini silebilir. Düzenli yedek alın.</div>
   <button class="btn" data-act="export">Verileri dışa aktar (JSON)</button>
   <button class="btn alt" data-act="import">Yedekten içe aktar</button>
-  <input type="file" id="file" accept="application/json" hidden></div>`;
+  <input type="file" id="file" accept="application/json" hidden></div>
+  <div class="card"><b class="ftitle">Sıfırla</b><div class="mute">Tüm hesaplar, işlemler, tekrar edenler ve bütçeler silinir; kategoriler varsayılana döner.${SY.cfg?' Senkron açık: diğer cihazlar da sıfırlanır.':''} Önce yedek alın.</div>
+  <button class="btn alt" data-act="reset">Tüm verileri sıfırla</button></div>`;
 }
 
 /* --- formlar --- */
@@ -579,6 +581,11 @@ document.addEventListener('click',async e=>{
   else if(d.act==='close'){$('#form').dataset.kind='';closeSheet()}
   else if(d.act==='export'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download=`metelik-yedek-${today()}.json`;a.click()}
   else if(d.act==='import')$('#file').click();
+  else if(d.act==='reset'){
+    if(!confirm('Tüm veriler silinsin mi?\nÖnce "Verileri dışa aktar" ile yedek almanız önerilir.'))return;
+    if(prompt('Onaylamak için SIFIRLA yazın.')?.trim().toLocaleUpperCase('tr')!=='SIFIRLA')return;
+    S.accounts=[];S.tx=[];S.recurring=[];S.budgets={};S.cats=JSON.parse(JSON.stringify(DEF_KAT));
+    await save();render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id?.startsWith('newcat-')){e.preventDefault();$(`[data-addcat="${e.target.id.slice(7)}"]`).click()}});
 document.addEventListener('change',async e=>{
