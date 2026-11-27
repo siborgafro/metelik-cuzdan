@@ -18,7 +18,10 @@ Bilgisayarda geniş ekrana yayılır: solda menü, içerik iki sütun.
 
 ## Neler yapar
 
-- **Hesaplar:** nakit, banka, kredi kartı ve yemek kartı. Açılış bakiyesi eksi olabilir.
+- **Hesaplar:** nakit, banka, kredi kartı, yemek kartı, kredi ve kişi borç/alacak. Açılış bakiyesi eksi olabilir.
+- **Kredi:** aylık taksit, ödeme günü ve kalan taksit; kalan borç ve bu ayın taksiti görünür.
+- **Borç / alacak:** kişi başına; + o kişinin sana borcu, − senin borcun. "Öde" ve "Tahsil et" kısayolları.
+- **Planlı ödemeler:** adı, tutarı ve tarihi olan tek seferlik ödemeler; tarihi gelince Özet'te "Öde" ile çıkar.
 - **Gelir, gider, transfer:** hesaplar arası para aktarımı dahil.
 - **Kredi kartı:** limit, kesim günü ve son ödeme günü. Ekstre tutarını, dönem içi
   harcamayı, kullanılabilir limiti ve gecikmeyi gösterir; "Öde" kısayolu vardır.

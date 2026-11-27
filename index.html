@@ -245,8 +245,8 @@ nav .nbrand,nav .nadd{display:none}
 /* varsayılanlar; kullanıcı Ayarlar'dan ekler/siler, liste S.cats içinde saklanır */
 const KAT=t=>S.cats[t];
 const DEF_KAT={gider:['Market','Yemek','Fatura','Abonelik','Ulaşım','Kira','Sağlık','Eğlence','Alışveriş','Kahve','Diğer'],gelir:['Maaş','Yemek kartı yüklemesi','Ek gelir','Diğer']};
-const TIP={nakit:'Nakit',banka:'Banka',kart:'Kredi kartı',yemek:'Yemek kartı'};
-let S={accounts:[],tx:[],budgets:{},recurring:[],cats:JSON.parse(JSON.stringify(DEF_KAT)),deleted:{},meta:{}},tab='ozet',month;
+const TIP={nakit:'Nakit',banka:'Banka',kart:'Kredi kartı',yemek:'Yemek kartı',kredi:'Kredi',kisi:'Borç / alacak'};
+let S={accounts:[],tx:[],budgets:{},recurring:[],planned:[],cats:JSON.parse(JSON.stringify(DEF_KAT)),deleted:{},meta:{}},tab='ozet',month;
 
 /* --- depolama (IndexedDB) --- */
 const db=new Promise((res,rej)=>{let r;try{r=indexedDB.open('metelik',1)}catch(e){return rej(e)}r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -260,7 +260,8 @@ async function save(){stamp();await persist();scheduleSync()}
 /* --- değişiklik damgası ---
    Her kayıt değiştiğinde u = zaman; silinen kayıt S.deleted["tür:id"] = zaman olarak iz bırakır.
    Damgalama save() içinde son kaydedilen hâlle karşılaştırılarak yapılır; tek tek işlemlere dokunmak gerekmez. */
-const COLS=['accounts','tx','recurring'],FIELDS=['budgets','cats'];
+/* planned: tek seferlik planlı ödemeler {id,name,amount,date,to?,cat,acc?,done} */
+const COLS=['accounts','tx','recurring','planned'],FIELDS=['budgets','cats'];
 let SNAP=null;
 function snapOf(){const m={};
   for(const c of COLS)for(const x of S[c]){const {u,...r}=x;m[c+':'+x.id]=JSON.stringify(r)}
@@ -275,7 +276,7 @@ function merge(A,B){
   const out={deleted:{...A.deleted},meta:{}};
   for(const k in B.deleted)out.deleted[k]=Math.max(out.deleted[k]||0,B.deleted[k]);
   for(const c of COLS){const m=new Map();
-    for(const x of [...A[c],...B[c]]){const o=m.get(x.id);
+    for(const x of [...(A[c]||[]),...(B[c]||[])]){const o=m.get(x.id);
       if(!o)m.set(x.id,x);
       else{const w=(x.u||0)>(o.u||0)?x:o;
         m.set(x.id,c==='recurring'?{...w,done:[...new Set([...(o.done||[]),...(x.done||[])])]}:w)}}
@@ -326,7 +327,7 @@ async function sync(){
 function canon(o){const key=x=>x&&typeof x==='object'&&'id'in x?'#'+x.id:JSON.stringify(x);
   const s=v=>Array.isArray(v)?v.map(s).sort((a,b)=>{const x=key(a),y=key(b);return x<y?-1:x>y?1:0})
   :v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,s(v[k])])):v;
-  return JSON.stringify(s({accounts:o.accounts,tx:o.tx,recurring:o.recurring,budgets:o.budgets,cats:o.cats,deleted:o.deleted,meta:o.meta}))}
+  return JSON.stringify(s({accounts:o.accounts,tx:o.tx,recurring:o.recurring,planned:o.planned||[],budgets:o.budgets,cats:o.cats,deleted:o.deleted,meta:o.meta}))}
 let syncT;function scheduleSync(){if(!SY.cfg)return;clearTimeout(syncT);syncT=setTimeout(sync,1500)}
 /* ilk bağlantı: uzakta dosya varsa şifreyi onunla doğrula, yoksa yeni tuz üret */
 async function connect(c){
@@ -378,6 +379,13 @@ function ekstre(a){
   const rem=Math.max(0,stmt-paid);
   return {lc,nc,due,stmt,rem,donem:spend(lc,today()),sonraki:spend(lc,nc),late:rem>0&&today()>due,left:Math.round((Date.parse(due)-Date.parse(today()))/864e5)};
 }
+/* kredi: bakiye eksi = kalan borç; aylık taksit ve ödeme günü. Ay içinde krediye yapılan transferler o ayın ödemesi sayılır */
+function krediDurum(a,mo){
+  if(a.type!=='kredi')return null;
+  const kalan=Math.max(0,-balance(a.id)),t=a.taksit||0,[y,m]=mo.split('-').map(Number);
+  const odenen=S.tx.filter(x=>x.type==='transfer'&&x.to===a.id&&x.date.startsWith(mo)).reduce((s,x)=>s+x.amount,0);
+  const tutar=Math.min(t,kalan+odenen);
+  return {kalan,n:t?Math.ceil(kalan/t):0,odenen,tutar,odendi:!tutar||odenen>=tutar,due:a.day?cutDate(y,m-1,a.day):null}}
 function futureInstallments(a){return S.tx.filter(t=>t.acc===a&&t.type==='gider'&&t.date>today()).reduce((s,t)=>s+t.amount,0)}
 
 /* --- görünümler --- */
@@ -435,12 +443,21 @@ function ozet(){
     return {r,date,st,amt:tx?tx.amount:r.amount}}).sort((a,b)=>a.date.localeCompare(b.date));
   const rTop=rt.filter(x=>x.st!=='skip').reduce((s,x)=>s+x.amt,0),rPaid=rt.filter(x=>x.st==='paid').reduce((s,x)=>s+x.amt,0);
   const sonuc=gelir-gider;
+  /* kredi ve kişi borç/alacakları varlığa katılmaz, ayrı satırda */
+  const krediler=S.accounts.filter(a=>a.type==='kredi'),krediBorc=krediler.reduce((s,a)=>s+Math.max(0,-balance(a.id)),0);
+  const kisiler=S.accounts.filter(a=>a.type==='kisi'),alacak=kisiler.reduce((s,a)=>s+Math.max(0,balance(a.id)),0),kisiBorc=kisiler.reduce((s,a)=>s+Math.max(0,-balance(a.id)),0);
+  /* planlı ödemeler: bu ayın kredi taksitleri + tarihi seçili ayın sonuna kadar olan tek seferlik ödemeler */
+  const plan=[...krediler.map(a=>({a,k:krediDurum(a,month)})).filter(x=>x.k.tutar>0&&x.k.due).map(({a,k})=>({kind:'kredi',a,name:a.name,sub:'Kredi taksiti',date:k.due,amount:k.tutar,done:k.odendi})),
+    ...S.planned.filter(p=>!p.done&&p.date.slice(0,7)<=month).map(p=>({kind:'plan',p,name:p.name,sub:p.to&&acc(p.to)?'→ '+acc(p.to).name:p.cat,date:p.date,amount:p.amount,done:false}))]
+    .sort((x,y)=>x.date.localeCompare(y.date));
   /* masaüstünde: üstte varlık | ay sonucu, altta solda ödemeler + tekrar edenler, sağda kategoriler. Telefonda sıra aynı, tek sütun */
-  const sol=odeme.length||bek.length||rt.length;
+  const sol=odeme.length||plan.length||bek.length||rt.length;
   return `<div class="brand"><img src="icon.svg" alt=""><h1>Metelik Cüzdan</h1></div>${monthBar()}
   <div class="cols top"><section class="card hero" aria-label="Varlık ve borç"><div class="mute">Varlık · nakit + banka</div><div class="big">${tl(varlik)}</div>
     <div class="split"><div><span class="mute">Kart borcu</span><b class="${borc<0?'out':''}">${tl(-borc)}</b></div><div><span class="mute">Gelecek taksit</span><b>${tl(gelecek)}</b></div></div>
-    ${yemekler.length?`<div class="extra row"><span class="mute">Yemek kartı</span><b class="${yemek<0?'out':''}">${tl(yemek)}</b></div>`:''}</section>
+    ${yemekler.length?`<div class="extra row"><span class="mute">Yemek kartı</span><b class="${yemek<0?'out':''}">${tl(yemek)}</b></div>`:''}
+    ${krediler.length?`<div class="extra row"><span class="mute">Kredi borcu</span><b class="${krediBorc?'out':''}">${tl(krediBorc)}</b></div>`:''}
+    ${kisiler.length?`<div class="extra row"><span class="mute">Kişiler</span><b><span class="in">Alacak ${tl(alacak)}</span> · <span class="${kisiBorc?'out':''}">Borç ${tl(kisiBorc)}</span></b></div>`:''}</section>
   <div class="card stats" role="group" aria-label="Bu ayın sonucu"><div class="stat"><span class="mute">Gelir</span><b class="in">+${tl(gelir)}</b></div>
     <div class="stat"><span class="mute">Gider</span><b class="out">−${tl(gider)}</b></div>
     <div class="stat res"><span class="mute">Ay sonucu</span><b class="${sonuc<0?'out':'in'}">${sonuc<0?'−':'+'}${tl(Math.abs(sonuc))}</b></div></div></div>
@@ -448,6 +465,10 @@ function ozet(){
   ${odeme.length?'<h2>Kart ödemeleri</h2><div class="list">'+odeme.map(({a,e})=>`<div class="item"><div class="l"><b>${esc(a.name)}</b>
     <div class="mute ${e.late?'out':''}">${e.late?icon('alert','s')+' ':''}Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
     <div class="r"><span class="amt out">${tl(e.rem)}</span>&nbsp;<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join('')+'</div>':''}
+  ${plan.length?'<h2>Planlı ödemeler</h2><div class="list">'+plan.map(x=>{const late=!x.done&&x.date<today();
+    return `<div class="item"><div class="l"><b>${esc(x.name)}</b><div class="mute ${late?'out':''}">${late?icon('alert','s')+' ':''}${esc(x.sub)} · ${fd(x.date)}${late?' · gecikmiş':''}</div></div>
+    <div class="r"><span class="amt ${x.done?'':'out'}">${tl(x.amount)}</span>&nbsp;${x.done?`<span class="chip in">${icon('check','s')}Ödendi</span>`
+      :x.kind==='kredi'?`<button class="mini" data-pay="${x.a.id}" data-amt="${x.amount}">Öde</button>`:`<button class="mini" data-planpay="${x.p.id}">Öde</button>`}</div></div>`}).join('')+'</div>':''}
   ${bek.length?'<h2>Ödeme bekleyen</h2><div class="list">'+bek.map(({r,mo,date})=>`<div class="item" style="flex-wrap:wrap"><div class="l"><b>${esc(r.name)}</b>
     <div class="mute">${esc(r.cat)} · ${fd(date)}</div></div><span class="amt out">${tl(r.amount)}</span>
     <div class="row" style="justify-content:flex-end;width:100%"><button class="mini alt" data-recskip="${r.id}" data-mo="${mo}">Bu ay yok</button><button class="mini" data-recpay="${r.id}" data-mo="${mo}">Öde</button></div></div>`).join('')+'</div>':''}
@@ -470,8 +491,12 @@ function islem(){
   const rl=S.recurring.map(r=>`<div class="item"><button type="button" class="hit l" data-editrec="${r.id}" aria-label="${esc(r.name)} düzenle"><span class="t">${esc(r.name)} ${icon('edit','s')}</span>
     <span class="mute">${esc(r.cat)} · ayın ${r.day}. günü · ${esc(acc(r.acc)?.name||'hesap yok')}${r.auto?' · otomatik':''}</span></button>
     <div class="r"><span class="amt">${tl(r.amount)}</span><button class="del" data-delrec="${r.id}" aria-label="${esc(r.name)} sil">${icon('x')}</button></div></div>`).join('');
+  const pl=S.planned.filter(p=>!p.done).sort((a,b)=>a.date.localeCompare(b.date)).map(p=>`<div class="item"><button type="button" class="hit l" data-editplan="${p.id}" aria-label="${esc(p.name)} düzenle"><span class="t">${esc(p.name)} ${icon('edit','s')}</span>
+    <span class="mute ${p.date<today()?'out':''}">${fd(p.date)}.${p.date.slice(0,4)} · ${p.to&&acc(p.to)?'→ '+esc(acc(p.to).name):esc(p.cat)}</span></button>
+    <div class="r"><span class="amt">${tl(p.amount)}</span><button class="del" data-delplan="${p.id}" aria-label="${esc(p.name)} sil">${icon('x')}</button></div></div>`).join('');
   /* masaüstünde aylık işlemler geniş sütunda solda, tekrar edenler sağda (order ile) */
-  return `<h1>İşlemler</h1><div class="cols wide"><div class="col"><h2>Tekrar eden giderler</h2>${rl?'<div class="list">'+rl+'</div>':''}<button class="btn alt add" data-act="newrec">${icon('plus')}Tekrar eden gider (fatura, abonelik)</button></div>
+  return `<h1>İşlemler</h1><div class="cols wide"><div class="col"><h2>Tekrar eden giderler</h2>${rl?'<div class="list">'+rl+'</div>':''}<button class="btn alt add" data-act="newrec">${icon('plus')}Tekrar eden gider (fatura, abonelik)</button>
+  <h2>Planlı ödemeler</h2>${pl?'<div class="list">'+pl+'</div>':''}<button class="btn alt add" data-act="newplan">${icon('plus')}Planlı ödeme (tek seferlik)</button></div>
   <div class="col"><h2>Aylık işlemler</h2>${monthBar()}`+(m.length?'<div class="list">'+m.map(t=>{
     const a=acc(t.acc),cls=t.type==='gelir'?'in':t.type==='gider'?'out':'';const sign=t.type==='gelir'?'+':t.type==='gider'?'−':'';
     const sub=t.type==='transfer'?`${esc(a?.name)} → ${esc(acc(t.to)?.name)}`:`${esc(t.cat)} · ${esc(a?.name)}`;
@@ -482,15 +507,19 @@ function islem(){
 }
 function hesap(){
   return `<h1>Hesaplar</h1><div class="grid">`+S.accounts.map(a=>{
-    const b=balance(a.id),k=a.type==='kart',e=ekstre(a);
+    const b=balance(a.id),k=a.type==='kart',e=ekstre(a),kr=krediDurum(a,today().slice(0,7));
+    const tutarYazi=k||a.type==='kredi'?(b<0?'Borç '+tl(-b):tl(b)):a.type==='kisi'?(b>0?'Alacak '+tl(b):b<0?'Borç '+tl(-b):'Kapandı'):tl(b);
     return `<div class="card"><div class="row"><button type="button" class="hit" data-editacc="${a.id}" aria-label="${esc(a.name)} düzenle"><span class="t">${esc(a.name)} ${icon('edit','s')}</span><span class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}${e?` · kesim ${a.cut}`:''}</span></button>
-      <div class="r row" style="gap:2px"><span class="amt ${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</span><button class="del" data-delacc="${a.id}" aria-label="${esc(a.name)} sil">${icon('x')}</button></div></div>
+      <div class="r row" style="gap:2px"><span class="amt ${b<0?'out':a.type==='kisi'&&b>0?'in':''}">${tutarYazi}</span><button class="del" data-delacc="${a.id}" aria-label="${esc(a.name)} sil">${icon('x')}</button></div></div>
+      ${kr?`<div class="mute">${kr.kalan?`Aylık taksit ${tl(a.taksit)}${a.day?` · ayın ${a.day}'i`:''}${kr.n?` · yaklaşık ${kr.n} taksit kaldı`:''}`:`${icon('check','s')} Kredi kapandı`}</div>
+        ${kr.kalan&&kr.tutar?`<div class="row" style="margin-top:8px"><span class="${kr.odendi?'in':''}">${kr.odendi?icon('check','s')+' Bu ayın taksiti ödendi':'Bu ay: '+tl(kr.tutar)}</span>${kr.odendi?'':`<button class="mini" data-pay="${a.id}" data-amt="${kr.tutar}">Öde</button>`}</div>`:''}`:''}
+      ${a.type==='kisi'&&b?`<div class="row" style="margin-top:8px"><span class="mute">${b>0?'Tahsil edince':'Ödeyince'} Transfer ile kapatın</span>${b<0?`<button class="mini" data-pay="${a.id}" data-amt="${-b}">Öde</button>`:`<button class="mini alt" data-collect="${a.id}" data-amt="${b}">Tahsil et</button>`}</div>`:''}
       ${k?`<div class="mute">Gelecek taksit: ${tl(futureInstallments(a.id))}${a.limit?` · kullanılabilir ${tl(a.limit+b-futureInstallments(a.id))}`:''}</div>`:''}
       ${e?`<div class="stmt"><div class="row"><span>Ekstre ${fd(e.lc)}: <b>${tl(e.stmt)}</b></span><span class="mute">Son ödeme ${fd(e.due)}</span></div>
         <div class="row"><span class="${e.late?'out':e.rem?'':'in'}">${e.rem?`${e.late?icon('alert','s')+' ':''}Kalan ${tl(e.rem)}${e.late?' · gecikmiş':''}`:`${icon('check','s')} Ekstre ödendi`}</span>${e.rem?`<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button>`:''}</div>
         <div class="mute">Dönem içi harcama: ${tl(e.donem)} · Sonraki ekstre (${fd(e.nc)}): ${tl(e.sonraki)}</div></div>`
       :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')+'</div>'
-    +(S.accounts.length?'':'<div class="card mute empty">Henüz hesap yok. Nakit, banka veya kartınızı ekleyerek başlayın.</div>')
+    +(S.accounts.length?'':'<div class="card mute empty">Henüz hesap yok. Nakit, banka, kart, kredi ya da kişi borç/alacak ekleyerek başlayın.</div>')
     +`<button class="btn add" data-act="newacc">${icon('plus')}Hesap ekle</button>`;
 }
 function syncCard(){
@@ -568,11 +597,35 @@ function openRec(r){
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
   $('#form').dataset.kind='rec';$('#form').dataset.edit=r?.id||'';openSheet();
 }
+/* planlı ödeme: adı, tutarı, tarihi olan tek seferlik ödeme. Hedef seçilirse (kredi/kişi) transfer, yoksa gider olarak ödenir */
+function openPlan(p){
+  const hedef=S.accounts.filter(a=>a.type==='kisi'||a.type==='kredi'||a.type==='kart');
+  $('#form').innerHTML=`<b class="ftitle">${p?'Planlı ödemeyi düzenle':'Planlı ödeme'}</b>
+  <label>Ad</label><input name="name" required placeholder="Örn. Ev sahibine depozito, Ahmet'e borç" value="${esc(p?.name)}">
+  <label>Tutar (TL)</label><input name="amount" inputmode="decimal" required placeholder="0,00" value="${kurusStr(p?.amount)}">
+  <label>Ödeme tarihi</label><input name="date" type="date" required value="${p?.date||today()}">
+  <label>Kime / nereye</label><select name="to"><option value="">Gider olarak (kategoriyle)</option>${hedef.map(a=>`<option value="${a.id}" ${p?.to===a.id?'selected':''}>${esc(a.name)} · ${TIP[a.type]}</option>`).join('')}</select>
+  <div id="plancat" style="${p?.to?'display:none':''}"><label>Kategori</label><select name="cat">${catOpts('gider',p?.cat||'Diğer')}</select></div>
+  <div class="mute">Tarihi gelince Özet'te "Öde" ile çıkar. Ödeyince listeden düşer.</div>
+  <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
+  $('#form').dataset.kind='plan';$('#form').dataset.edit=p?.id||'';openSheet();
+}
+function payPlan(pid){
+  if(!S.accounts.length){alert('Önce bir hesap ekleyin.');return}
+  const p=S.planned.find(x=>x.id===pid);if(!p)return;
+  if(p.to&&acc(p.to))openPay(p.to,p.amount);
+  else{F={type:'gider',amount:p.amount,cat:p.cat,note:p.name,date:p.date<today()?today():p.date};drawTx();openSheet()}
+  F.plan=p.id;$('#form [name=note]').value=p.name;
+}
 function openPay(cardId,amount){
   const src=S.accounts.find(a=>a.type==='banka')||S.accounts.find(a=>a.type==='nakit');
-  F={type:'transfer',to:cardId,amount,acc:src?.id};drawTx();$('#form [name=note]').value=acc(cardId).name+' ekstre ödemesi';openSheet();
+  const t=acc(cardId).type,ek={kart:' ekstre ödemesi',kredi:' taksit ödemesi',kisi:' borç ödemesi'}[t]||' ödemesi';
+  F={type:'transfer',to:cardId,amount,acc:src?.id};drawTx();$('#form [name=note]').value=acc(cardId).name+ek;openSheet();
 }
 const kurusStr=k=>k?(k/100).toFixed(2).replace('.',','):'';
+/* tür seçimine göre bakiye işaretinin anlamı */
+const signHint=t=>({kart:'Kart borcu varsa − seçin.',kredi:'Kalan borcu − ile girin. Boş bırakırsanız taksit × kalan taksit sayısından hesaplanır.',
+  kisi:'+ : o kişi size borçlu (alacak). − : siz ona borçlusunuz. Ödeme ve tahsilatı Transfer ile girin.'})[t]||'Ek hesap / eksi bakiye için − seçin.';
 function openAcc(a){
   /* iPhone ondalık klavyesinde eksi tuşu yok; işaret ayrı seçilir */
   const neg=a?a.opening<0:false;
@@ -582,11 +635,15 @@ function openAcc(a){
   <div class="row"><input name="opening" inputmode="decimal" placeholder="0,00" value="${kurusStr(Math.abs(a?.opening||0))}" style="flex:1">
     <input type="hidden" name="sign" value="${neg?'-1':'1'}">
     <div class="seg" style="flex:0 0 132px" role="group" aria-label="Bakiye işareti"><button type="button" data-sign="1" class="${neg?'':'on'}" aria-label="Artı" aria-pressed="${!neg}">+</button><button type="button" data-sign="-1" class="${neg?'on':''}" aria-label="Eksi" aria-pressed="${neg}">−</button></div></div>
-  <div class="mute" id="signhint">${a?.type==='kart'?'Kart borcu varsa − seçin.':'Ek hesap / eksi bakiye için − seçin.'}</div>
+  <div class="mute" id="signhint">${signHint(a?.type)}</div>
   <div id="kartbox" style="${a?.type==='kart'?'':'display:none'}">
   <label>Kart limiti (isteğe bağlı)</label><input name="limit" inputmode="decimal" value="${kurusStr(a?.limit)}">
   <label>Hesap kesim günü (1–31)</label><input name="cut" type="number" min="1" max="31" value="${a?.cut||''}" placeholder="Örn. 15">
   <label>Son ödeme: kesimden kaç gün sonra</label><input name="dueDays" type="number" min="1" max="31" value="${a?.dueDays??10}"></div>
+  <div id="kredibox" style="${a?.type==='kredi'?'':'display:none'}">
+  <label>Aylık taksit (TL)</label><input name="taksit" inputmode="decimal" placeholder="Örn. 2.450" value="${kurusStr(a?.taksit)}">
+  <label>Her ayın kaçında ödenir (1–31)</label><input name="day" type="number" min="1" max="31" value="${a?.day||''}" placeholder="Örn. 5">
+  ${a?'':`<label>Kalan taksit sayısı (isteğe bağlı)</label><input name="kalanN" type="number" min="1" max="600" placeholder="Örn. 18">`}</div>
   <button class="btn" type="submit">Kaydet</button><button class="btn alt" type="button" data-act="close">Vazgeç</button>`;
   $('#form').dataset.kind='acc';$('#form').dataset.edit=a?.id||'';openSheet();
 }
@@ -602,16 +659,24 @@ $('#form').addEventListener('submit',async e=>{
     else{const t=today(),[y,m]=t.split('-').map(Number);
       const start=day>Number(t.slice(8))?t.slice(0,7):(m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`);
       S.recurring.push({id:id(),...v,start,done:[]})}
+  }else if(e.target.dataset.kind==='plan'){
+    const amount=toKurus(f.get('amount'));if(!(amount>0)){alert('Geçerli bir tutar girin.');return}
+    const v={name:f.get('name').trim(),amount,date:f.get('date'),to:f.get('to')||'',cat:f.get('to')?'':f.get('cat')};
+    const ex=S.planned.find(x=>x.id===e.target.dataset.edit);
+    if(ex)Object.assign(ex,v);else S.planned.push({id:id(),...v,done:false});
   }else if(e.target.dataset.kind==='acc'){
-    const kart=f.get('type')==='kart',cut=parseInt(f.get('cut'));
-    const o=toKurus(f.get('opening')||0)||0;
-    const v={name:f.get('name').trim(),type:f.get('type'),opening:o<0?o:o*(f.get('sign')==='-1'?-1:1),limit:kart&&f.get('limit')?toKurus(f.get('limit')):0,
+    const kart=f.get('type')==='kart',kr=f.get('type')==='kredi',cut=parseInt(f.get('cut'));
+    let o=toKurus(f.get('opening')||0)||0;
+    const taksit=kr?toKurus(f.get('taksit')||0)||0:0,day=parseInt(f.get('day')),kn=parseInt(f.get('kalanN'));
+    if(kr&&!o&&taksit&&kn>0)o=-taksit*kn;
+    const v={name:f.get('name').trim(),type:f.get('type'),opening:o<0?o:o*(f.get('sign')==='-1'?-1:1),taksit,day:kr&&day>=1&&day<=31?day:0,limit:kart&&f.get('limit')?toKurus(f.get('limit')):0,
       cut:kart&&cut>=1&&cut<=31?cut:0,dueDays:Math.min(31,Math.max(1,parseInt(f.get('dueDays'))||10))};
     const ex=acc(e.target.dataset.edit);
     if(ex)Object.assign(ex,v);else S.accounts.push({id:id(),...v});
   }else{
     const amount=toKurus(f.get('amount'));if(!(amount>0)){alert('Geçerli bir tutar girin.');return}
     const base={type:F.type,acc:f.get('acc'),date:f.get('date'),note:f.get('note').trim()};
+    if(F.plan){const p=S.planned.find(x=>x.id===F.plan);if(p)p.done=true}
     if(F.rec&&F.type==='gider'){base.rec=F.rec;const r=S.recurring.find(x=>x.id===F.rec);if(r&&!r.done.includes(F.recMo))r.done.push(F.recMo)}
     if(F.type==='transfer'){
       if(base.acc===f.get('to')){alert('Kaynak ve hedef farklı olmalı.');return}
@@ -651,6 +716,12 @@ document.addEventListener('click',async e=>{
   if(d.recskip){const r=S.recurring.find(x=>x.id===d.recskip);r.done.push(d.mo);await save();return render()}
   if(d.delrec){if(confirm('Tekrar eden gider silinsin mi? Geçmiş işlemler kalır.')){S.recurring=S.recurring.filter(r=>r.id!==d.delrec);await save();render()}return}
   if(d.act==='newrec')return openRec();
+  if(d.act==='newplan')return openPlan();
+  if(d.editplan)return openPlan(S.planned.find(p=>p.id===d.editplan));
+  if(d.planpay)return payPlan(d.planpay);
+  if(d.delplan){if(confirm('Planlı ödeme silinsin mi?')){S.planned=S.planned.filter(p=>p.id!==d.delplan);await save();render()}return}
+  if(d.collect){const dst=S.accounts.find(a=>a.type==='banka')||S.accounts.find(a=>a.type==='nakit');
+    F={type:'transfer',acc:d.collect,to:dst?.id,amount:Number(d.amt)};drawTx();$('#form [name=note]').value=acc(d.collect).name+' tahsilat';openSheet();return}
   if(d.act==='syncnow')return sync();
   if(d.act==='syncoff'){if(confirm('Bu cihazın senkron bağlantısı kesilsin mi? Veriler silinmez.')){SY.cfg=null;SY.last=null;await kvPut('sync',null);render()}return}
   if(d.addcat){let v=$('#newcat-'+d.addcat).value.trim().replace(/\s+/g,' ');const L=KAT(d.addcat);if(!v)return;
@@ -679,7 +750,7 @@ document.addEventListener('click',async e=>{
   else if(d.act==='reset'){
     if(!confirm('Tüm veriler silinsin mi?\nÖnce "Verileri dışa aktar" ile yedek almanız önerilir.'))return;
     if(prompt('Onaylamak için SIFIRLA yazın.')?.trim().toLocaleUpperCase('tr')!=='SIFIRLA')return;
-    S.accounts=[];S.tx=[];S.recurring=[];S.budgets={};S.cats=JSON.parse(JSON.stringify(DEF_KAT));
+    S.accounts=[];S.tx=[];S.recurring=[];S.planned=[];S.budgets={};S.cats=JSON.parse(JSON.stringify(DEF_KAT));
     await save();render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id?.startsWith('newcat-')){e.preventDefault();$(`[data-addcat="${e.target.id.slice(7)}"]`).click()}});
@@ -687,8 +758,9 @@ document.addEventListener('change',async e=>{
   if(e.target.id==='file'){const file=e.target.files[0];if(!file)return;
     try{const j=JSON.parse(await file.text());if(!Array.isArray(j.accounts)||!Array.isArray(j.tx))throw 0;
       if(confirm('Mevcut veri yedekle değiştirilsin mi?')){S=j;fillDefaults();await save();render()}}catch{alert('Geçersiz yedek dosyası.')}}
-  if(e.target.name==='type'&&$('#kartbox')){const k=e.target.value==='kart';$('#kartbox').style.display=k?'':'none';
-    $('#signhint').textContent=k?'Kart borcu varsa − seçin.':'Ek hesap / eksi bakiye için − seçin.'}
+  if(e.target.name==='type'&&$('#kartbox')){const t=e.target.value;$('#kartbox').style.display=t==='kart'?'':'none';$('#kredibox').style.display=t==='kredi'?'':'none';
+    $('#signhint').textContent=signHint(t);if(t==='kredi')$('#form [data-sign="-1"]').click()}
+  if(e.target.name==='to'&&$('#plancat'))$('#plancat').style.display=e.target.value?'none':'';
   if(e.target.name==='acc'&&$('#instbox'))$('#instbox').style.display=acc(e.target.value)?.type==='kart'?'':'none';
 });
 
@@ -699,7 +771,7 @@ if(navigator.standalone||matchMedia('(display-mode: standalone)').matches){
   const fill=()=>{document.body.style.minHeight=(innerWidth>innerHeight?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height))+1+'px'};
   fill();addEventListener('resize',fill);
 }
-function fillDefaults(){S.budgets||={};S.recurring||=[];S.cats||=JSON.parse(JSON.stringify(DEF_KAT));S.deleted||={};S.meta||={}}
+function fillDefaults(){S.budgets||={};S.recurring||=[];S.planned||=[];S.cats||=JSON.parse(JSON.stringify(DEF_KAT));S.deleted||={};S.meta||={}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sync()});
 (async()=>{const s=await load();if(s)S=s;fillDefaults();SNAP=snapOf();render();
   const c=await kvGet('sync');if(c?.key){SY.cfg=c;sync()}if('serviceWorker'in navigator){
