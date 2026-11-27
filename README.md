@@ -10,6 +10,10 @@ yalnız senin cihazında kalır.
 |---|---|---|
 | ![Özet: varlık, kart borcu, tekrar eden giderler, ay sonucu](docs/ozet.jpg) | ![İşlemler: tekrar eden giderler ve aylık işlem listesi](docs/islemler.jpg) | ![Hesaplar: nakit, banka, kredi kartı ekstresi, yemek kartı](docs/hesaplar.jpg) |
 
+Bilgisayarda geniş ekrana yayılır: solda menü, içerik iki sütun.
+
+![Masaüstü: sol kenar çubuğu, varlık ve ay sonucu, ödemeler ve kategoriler](docs/masaustu.jpg)
+
 *Ekran görüntülerindeki tüm tutarlar örnektir.*
 
 ## Neler yapar
