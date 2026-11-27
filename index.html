@@ -129,24 +129,71 @@ input::placeholder{color:#8591ae}
 .empty{padding:18px 14px;text-align:center}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 input:focus-visible,select:focus-visible{outline-offset:0;border-color:var(--gold)}
+/* --- Liquid Glass (Afro isteği, 2026-11-27): yüzeyler yarı saydam ve bulanık, kenarda ince ışık çizgisi.
+   Arkadaki sabit renk ışıltıları cama derinlik verir; renkler logodan (altın) ve lacivertin açık tonlarından. --- */
+:root{--card:rgba(255,255,255,.06);--card2:rgba(255,255,255,.11);--line:rgba(255,255,255,.1);--share:rgba(255,255,255,.28);
+  --glass:rgba(28,46,88,.42);--gline:rgba(255,255,255,.13);--ghi:rgba(255,255,255,.2);--blur:blur(26px) saturate(170%);
+  --r-sm:12px;--r-md:18px;--r-lg:24px;--navh:62px;--navb:max(env(safe-area-inset-bottom),12px)}
+/* body düz zemin çizerse z-index:-1 katmanı örtülür; zemin html'de ve ışıltı katmanında */
+body{background:transparent}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(40vmax 40vmax at 6% 2%,rgba(217,169,59,.3),transparent 64%),
+  radial-gradient(48vmax 48vmax at 98% 24%,rgba(64,112,224,.38),transparent 64%),
+  radial-gradient(46vmax 46vmax at 22% 98%,rgba(46,150,170,.24),transparent 64%),var(--bg)}
+.card,.list,nav,.month button,.seg button,.cat{-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.card,.list{background:var(--glass);border:1px solid var(--gline);border-radius:var(--r-md);box-shadow:inset 0 1px 0 var(--ghi),0 10px 30px rgba(0,0,0,.26)}
+.hero{background:linear-gradient(155deg,rgba(72,104,172,.5),rgba(28,46,88,.38) 70%);border-color:rgba(255,255,255,.18)}
+.stat.res,.rsum{background:rgba(255,255,255,.05)}
+.bar{background:rgba(255,255,255,.1)}
+/* alt menü: ekranın altında yüzen cam hap; seçili sekme içte açık bir hap */
+nav{left:12px;right:12px;bottom:var(--navb);max-width:516px;margin:0 auto;padding:5px;border:1px solid var(--gline);border-radius:999px;
+  background:rgba(20,34,68,.5);box-shadow:inset 0 1px 0 var(--ghi),inset 0 -1px 0 rgba(0,0,0,.25),0 14px 36px rgba(0,0,0,.45)}
+nav .in-nav{gap:2px}
+nav button{height:calc(var(--navh) - 10px);border-radius:999px;transition:color .15s,background-color .2s}
+nav button[aria-current="page"]{background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+nav button[aria-current="page"]::before{display:none}
+.fab{background:linear-gradient(180deg,#ebc062,#c99526);border:1px solid rgba(255,255,255,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 10px 26px rgba(0,0,0,.45)}
+.fab:hover{background:linear-gradient(180deg,#f0c86e,#d4a032)}
+.month button{border-radius:50%;background:rgba(255,255,255,.07);border-color:var(--gline);box-shadow:inset 0 1px 0 var(--ghi)}
+.month button:hover{background:rgba(255,255,255,.14)}
+input,select{background:rgba(255,255,255,.06)}
+option{background:#16264a;color:var(--cream)}
+.seg button{border-radius:999px;background:rgba(255,255,255,.06)}
+.seg button.on{box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+.btn{background:linear-gradient(180deg,#e4b851,#cf9c2c);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.btn:hover{background:linear-gradient(180deg,#ebc062,#d9a93b)}
+.btn.alt{background:rgba(255,255,255,.06);border-color:var(--gline);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.btn.alt:hover{background:rgba(255,255,255,.12)}
+.mini{border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.mini.alt{background:rgba(255,255,255,.06);box-shadow:none}
+.cat{background:rgba(255,255,255,.06)}
+dialog#sheet::backdrop{background:rgba(3,8,20,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+dialog#sheet form{background:rgba(18,30,58,.72);-webkit-backdrop-filter:blur(34px) saturate(170%);backdrop-filter:blur(34px) saturate(170%);
+  border-color:var(--gline);box-shadow:inset 0 1px 0 var(--ghi),0 -10px 40px rgba(0,0,0,.4)}
+/* saydamlığı azalt tercihinde ya da bulanıklık desteklenmezse düz yüzeylere dön */
+@media (prefers-reduced-transparency:reduce){
+  .card,.list,nav,dialog#sheet form{background:#16264a;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .hero{background:#1b2d55}body::before{display:none}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .card,.list,nav{background:#16264a}.hero{background:#1b2d55}dialog#sheet form{background:var(--bg)}}
 /* masaüstü öğeleri telefonda gizli; .cols/.grid telefonda sıradan blok */
 nav .nbrand,nav .nadd{display:none}
 /* masaüstü: alt menü sola kenar çubuğu olur, içerik geniş alana iki sütun yayılır */
 @media (min-width:1000px){
-  :root{--side:232px}
+  :root{--side:252px}
   body{padding-bottom:40px}
-  nav{top:0;right:auto;width:var(--side);border-top:0;border-right:1px solid var(--line);padding:22px 14px}
+  /* kenar çubuğu da kenarlardan ayrık yüzen bir cam panel */
+  nav{top:14px;bottom:14px;left:14px;right:auto;width:calc(var(--side) - 28px);max-width:none;margin:0;padding:20px 12px;border-radius:var(--r-lg)}
   nav .in-nav{flex-direction:column;gap:4px;max-width:none}
   nav .nbrand{display:flex;align-items:center;gap:10px;margin:0 6px 22px}
   nav .nbrand img{width:30px;height:30px;border-radius:var(--r-sm)}
   nav .nbrand b{font:700 19px/1.1 var(--disp)}
-  nav .nadd{display:flex;flex:none;flex-direction:row;height:auto;font-size:15px;align-items:center;justify-content:center;gap:8px;margin:0 0 14px;padding:11px;border:0;border-radius:var(--r-sm);background:var(--gold);color:var(--bg);font-weight:500;transition:background-color .15s}
-  nav .nadd:hover{background:var(--gold-h);color:var(--bg)}
+  nav .nadd{display:flex;flex:none;flex-direction:row;height:auto;font-size:15px;align-items:center;justify-content:center;gap:8px;margin:0 0 14px;padding:11px;border:1px solid rgba(255,255,255,.3);border-radius:999px;background:linear-gradient(180deg,#e4b851,#cf9c2c);color:var(--bg);font-weight:500;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+  nav .nadd:hover{background:linear-gradient(180deg,#ebc062,#d9a93b);color:var(--bg)}
   nav button[data-tab]{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:44px;padding:0 12px;border-radius:var(--r-sm);font-size:15px}
   nav button[data-tab] .ico{width:20px;height:20px}
-  nav button[data-tab]:hover{background:var(--card)}
-  nav button[aria-current="page"]{background:var(--card)}
-  nav button[aria-current="page"]::before{top:10px;bottom:10px;left:0;right:auto;width:3px;height:auto;border-radius:0 2px 2px 0}
+  nav button[data-tab]:hover{background:rgba(255,255,255,.07)}
+  nav button[aria-current="page"]{background:rgba(255,255,255,.12)}
   .fab{display:none!important}
   main{max-width:1180px;margin:0 0 0 var(--side);padding:28px 40px 0}
   @media (min-width:1460px){main{margin-left:calc(var(--side) + (100vw - var(--side) - 1180px)/2)}}
@@ -169,7 +216,7 @@ nav .nbrand,nav .nadd{display:none}
   .acols{column-count:2;column-gap:16px}
   .acols>.card{break-inside:avoid;display:inline-block;width:100%;margin:0 0 16px}
   dialog#sheet{margin:auto;max-width:480px}
-  dialog#sheet form{border-bottom:1px solid var(--line);border-radius:var(--r-lg);padding-bottom:18px}
+  dialog#sheet form{border-bottom:1px solid var(--gline);border-radius:var(--r-lg);padding-bottom:18px;box-shadow:inset 0 1px 0 var(--ghi),0 24px 60px rgba(0,0,0,.5)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
