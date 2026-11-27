@@ -129,6 +129,48 @@ input::placeholder{color:#8591ae}
 .empty{padding:18px 14px;text-align:center}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 input:focus-visible,select:focus-visible{outline-offset:0;border-color:var(--gold)}
+/* masaüstü öğeleri telefonda gizli; .cols/.grid telefonda sıradan blok */
+nav .nbrand,nav .nadd{display:none}
+/* masaüstü: alt menü sola kenar çubuğu olur, içerik geniş alana iki sütun yayılır */
+@media (min-width:1000px){
+  :root{--side:232px}
+  body{padding-bottom:40px}
+  nav{top:0;right:auto;width:var(--side);border-top:0;border-right:1px solid var(--line);padding:22px 14px}
+  nav .in-nav{flex-direction:column;gap:4px;max-width:none}
+  nav .nbrand{display:flex;align-items:center;gap:10px;margin:0 6px 22px}
+  nav .nbrand img{width:30px;height:30px;border-radius:var(--r-sm)}
+  nav .nbrand b{font:700 19px/1.1 var(--disp)}
+  nav .nadd{display:flex;flex:none;flex-direction:row;height:auto;font-size:15px;align-items:center;justify-content:center;gap:8px;margin:0 0 14px;padding:11px;border:0;border-radius:var(--r-sm);background:var(--gold);color:var(--bg);font-weight:500;transition:background-color .15s}
+  nav .nadd:hover{background:var(--gold-h);color:var(--bg)}
+  nav button[data-tab]{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:44px;padding:0 12px;border-radius:var(--r-sm);font-size:15px}
+  nav button[data-tab] .ico{width:20px;height:20px}
+  nav button[data-tab]:hover{background:var(--card)}
+  nav button[aria-current="page"]{background:var(--card)}
+  nav button[aria-current="page"]::before{top:10px;bottom:10px;left:0;right:auto;width:3px;height:auto;border-radius:0 2px 2px 0}
+  .fab{display:none!important}
+  main{max-width:1180px;margin:0 0 0 var(--side);padding:28px 40px 0}
+  @media (min-width:1460px){main{margin-left:calc(var(--side) + (100vw - var(--side) - 1180px)/2)}}
+  main>.brand{display:none}
+  h1{font-size:30px;margin-bottom:18px}
+  .month{max-width:360px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+  .cols.top{gap:16px;align-items:stretch}
+  .cols.top>.card{margin:0}
+  .cols.wide{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+  .cols.wide>.col:first-child{order:2}
+  .cols>.col>h2:first-child{margin-top:26px}
+  .cols.one{grid-template-columns:minmax(0,1fr)}
+  .hero .big{font-size:42px}
+  .stats{grid-template-rows:1fr auto}
+  .stat.res{align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start;margin-bottom:14px}
+  .grid>.card{margin:0}
+  .btn.add{width:auto;display:inline-flex;padding:11px 20px}
+  .acols{column-count:2;column-gap:16px}
+  .acols>.card{break-inside:avoid;display:inline-block;width:100%;margin:0 0 16px}
+  dialog#sheet{margin:auto;max-width:480px}
+  dialog#sheet form{border-bottom:1px solid var(--line);border-radius:var(--r-lg);padding-bottom:18px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -312,9 +354,11 @@ function pendingRecs(){
 }
 function render(){
   pendingRecs();
-  $('#nav').innerHTML='<div class="in-nav">'+[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button data-tab="${k}"${tab===k?' aria-current="page"':''}>${icon(k)}<span>${l}</span></button>`).join('')+'</div>';
+  const addL=tab==='hesap'?'Hesap ekle':'İşlem ekle';
+  $('#nav').innerHTML='<div class="in-nav"><div class="nbrand"><img src="icon.svg" alt=""><b>Metelik Cüzdan</b></div>'
+    +(tab==='ayar'?'':`<button class="nadd" data-act="add">${icon('plus')}${addL}</button>`)+[['ozet','Özet'],['islem','İşlemler'],['hesap','Hesaplar'],['ayar','Ayarlar']].map(([k,l])=>`<button data-tab="${k}"${tab===k?' aria-current="page"':''}>${icon(k)}<span>${l}</span></button>`).join('')+'</div>';
   $('#fab').style.display=tab==='ayar'?'none':'flex';
-  $('#fab').setAttribute('aria-label',tab==='hesap'?'Hesap ekle':'İşlem ekle');
+  $('#fab').setAttribute('aria-label',addL);
   $('#app').innerHTML=({ozet,islem,hesap,ayar})[tab]();
   linkLabels($('#app'));
   syncBadge();
@@ -344,13 +388,16 @@ function ozet(){
     return {r,date,st,amt:tx?tx.amount:r.amount}}).sort((a,b)=>a.date.localeCompare(b.date));
   const rTop=rt.filter(x=>x.st!=='skip').reduce((s,x)=>s+x.amt,0),rPaid=rt.filter(x=>x.st==='paid').reduce((s,x)=>s+x.amt,0);
   const sonuc=gelir-gider;
+  /* masaüstünde: üstte varlık | ay sonucu, altta solda ödemeler + tekrar edenler, sağda kategoriler. Telefonda sıra aynı, tek sütun */
+  const sol=odeme.length||bek.length||rt.length;
   return `<div class="brand"><img src="icon.svg" alt=""><h1>Metelik Cüzdan</h1></div>${monthBar()}
-  <section class="card hero" aria-label="Varlık ve borç"><div class="mute">Varlık · nakit + banka</div><div class="big">${tl(varlik)}</div>
+  <div class="cols top"><section class="card hero" aria-label="Varlık ve borç"><div class="mute">Varlık · nakit + banka</div><div class="big">${tl(varlik)}</div>
     <div class="split"><div><span class="mute">Kart borcu</span><b class="${borc<0?'out':''}">${tl(-borc)}</b></div><div><span class="mute">Gelecek taksit</span><b>${tl(gelecek)}</b></div></div>
     ${yemekler.length?`<div class="extra row"><span class="mute">Yemek kartı</span><b class="${yemek<0?'out':''}">${tl(yemek)}</b></div>`:''}</section>
   <div class="card stats" role="group" aria-label="Bu ayın sonucu"><div class="stat"><span class="mute">Gelir</span><b class="in">+${tl(gelir)}</b></div>
     <div class="stat"><span class="mute">Gider</span><b class="out">−${tl(gider)}</b></div>
-    <div class="stat res"><span class="mute">Ay sonucu</span><b class="${sonuc<0?'out':'in'}">${sonuc<0?'−':'+'}${tl(Math.abs(sonuc))}</b></div></div>
+    <div class="stat res"><span class="mute">Ay sonucu</span><b class="${sonuc<0?'out':'in'}">${sonuc<0?'−':'+'}${tl(Math.abs(sonuc))}</b></div></div></div>
+  <div class="cols${sol?'':' one'}">${sol?'<div class="col">':''}
   ${odeme.length?'<h2>Kart ödemeleri</h2><div class="list">'+odeme.map(({a,e})=>`<div class="item"><div class="l"><b>${esc(a.name)}</b>
     <div class="mute ${e.late?'out':''}">${e.late?icon('alert','s')+' ':''}Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
     <div class="r"><span class="amt out">${tl(e.rem)}</span>&nbsp;<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join('')+'</div>':''}
@@ -363,12 +410,12 @@ function ozet(){
         :st==='soon'?`<span class="chip">${r.auto?'Otomatik':'Yaklaşıyor'}</span>`
         :`<span><button class="mini alt" data-recskip="${r.id}" data-mo="${month}">Yok</button><button class="mini" data-recpay="${r.id}" data-mo="${month}">Öde</button></span>`}</div></div>`).join('')
     +`<div class="row rsum"><span class="mute">Toplam ${tl(rTop)}</span><span class="mute">Ödenen <b class="in">${tl(rPaid)}</b> · Kalan <b>${tl(rTop-rPaid)}</b></span></div></div>`:''}
-  <h2>Kategoriler</h2>
+  ${sol?'</div>':''}<div class="col"><h2>Kategoriler</h2>
   ${bt?`<div class="card"><div class="row"><b>Toplam bütçe</b><span class="amt ${bs>bt?'out':''}">${tl(bs)} <span class="mute">/ ${tl(bt)}</span></span></div>${bar(bs,bt)}
     <div class="mute ${bs>bt?'out':''}">${bs>bt?tl(bs-bt)+' aşıldı':tl(bt-bs)+' kaldı'}${gecen!==null?` · ayın %${gecen}'i geçti`:''}</div></div>`:''}
   ${cl.length?'<div class="list">'+cl.map(([c,v])=>{const l=B[c];return `<div class="cat-row"><div class="row"><span>${esc(c)}</span><span class="amt ${l&&v>l?'out':''}">${tl(v)}${l?` <span class="mute">/ ${tl(l)}</span>`:''}</span></div>
     ${l?bar(v,l)+`<div class="mute ${v>l?'out':''}">${v>l?tl(v-l)+' aşıldı':'%'+Math.round(v/l*100)+' · '+tl(l-v)+' kaldı'}</div>`
-      :`<div class="bar" title="Giderlerin %${gider?Math.round(v/gider*100):0}'i"><i class="share" style="width:${gider?Math.round(v/gider*100):0}%"></i></div><div class="mute">Giderlerin %${gider?Math.round(v/gider*100):0}'i · limit yok</div>`}</div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay gider yok.</div>'}`;
+      :`<div class="bar" title="Giderlerin %${gider?Math.round(v/gider*100):0}'i"><i class="share" style="width:${gider?Math.round(v/gider*100):0}%"></i></div><div class="mute">Giderlerin %${gider?Math.round(v/gider*100):0}'i · limit yok</div>`}</div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay gider yok.</div>'}</div></div>`;
 }
 function bar(v,l){const p=v/l;return `<div class="bar"><i class="${p>1?'over':p>=.8?'warn':'ok'}" style="width:${Math.min(100,Math.round(p*100))}%"></i></div>`}
 function islem(){
@@ -376,17 +423,18 @@ function islem(){
   const rl=S.recurring.map(r=>`<div class="item"><button type="button" class="hit l" data-editrec="${r.id}" aria-label="${esc(r.name)} düzenle"><span class="t">${esc(r.name)} ${icon('edit','s')}</span>
     <span class="mute">${esc(r.cat)} · ayın ${r.day}. günü · ${esc(acc(r.acc)?.name||'hesap yok')}${r.auto?' · otomatik':''}</span></button>
     <div class="r"><span class="amt">${tl(r.amount)}</span><button class="del" data-delrec="${r.id}" aria-label="${esc(r.name)} sil">${icon('x')}</button></div></div>`).join('');
-  return `<h1>İşlemler</h1><h2>Tekrar eden giderler</h2>${rl?'<div class="list">'+rl+'</div>':''}<button class="btn alt add" data-act="newrec">${icon('plus')}Tekrar eden gider (fatura, abonelik)</button>
-  <h2>Aylık işlemler</h2>${monthBar()}`+(m.length?'<div class="list">'+m.map(t=>{
+  /* masaüstünde aylık işlemler geniş sütunda solda, tekrar edenler sağda (order ile) */
+  return `<h1>İşlemler</h1><div class="cols wide"><div class="col"><h2>Tekrar eden giderler</h2>${rl?'<div class="list">'+rl+'</div>':''}<button class="btn alt add" data-act="newrec">${icon('plus')}Tekrar eden gider (fatura, abonelik)</button></div>
+  <div class="col"><h2>Aylık işlemler</h2>${monthBar()}`+(m.length?'<div class="list">'+m.map(t=>{
     const a=acc(t.acc),cls=t.type==='gelir'?'in':t.type==='gider'?'out':'';const sign=t.type==='gelir'?'+':t.type==='gider'?'−':'';
     const sub=t.type==='transfer'?`${esc(a?.name)} → ${esc(acc(t.to)?.name)}`:`${esc(t.cat)} · ${esc(a?.name)}`;
     const ad=esc(t.note||(t.type==='transfer'?'Transfer / kart ödemesi':t.cat));
     return `<div class="item"><div class="l"><div>${ad}${t.inst?` <span class="mute">(${t.inst.n}/${t.inst.total} taksit)</span>`:''}${t.rec?` <span class="mute" title="Tekrar eden gider">${icon('repeat','s')}</span>`:''}</div>
       <div class="mute">${t.date.split('-').reverse().join('.')} · ${sub}</div></div>
-      <div class="r"><span class="amt ${cls}">${sign}${tl(t.amount)}</span><button class="del" data-del="${t.id}" aria-label="${ad} sil">${icon('x')}</button></div></div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay işlem yok.</div>');
+      <div class="r"><span class="amt ${cls}">${sign}${tl(t.amount)}</span><button class="del" data-del="${t.id}" aria-label="${ad} sil">${icon('x')}</button></div></div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay işlem yok.</div>')+'</div></div>';
 }
 function hesap(){
-  return `<h1>Hesaplar</h1>`+S.accounts.map(a=>{
+  return `<h1>Hesaplar</h1><div class="grid">`+S.accounts.map(a=>{
     const b=balance(a.id),k=a.type==='kart',e=ekstre(a);
     return `<div class="card"><div class="row"><button type="button" class="hit" data-editacc="${a.id}" aria-label="${esc(a.name)} düzenle"><span class="t">${esc(a.name)} ${icon('edit','s')}</span><span class="mute">${TIP[a.type]}${k&&a.limit?` · limit ${tl(a.limit)}`:''}${e?` · kesim ${a.cut}`:''}</span></button>
       <div class="r row" style="gap:2px"><span class="amt ${b<0?'out':''}">${k?(b<0?'Borç '+tl(-b):tl(b)):tl(b)}</span><button class="del" data-delacc="${a.id}" aria-label="${esc(a.name)} sil">${icon('x')}</button></div></div>
@@ -394,7 +442,7 @@ function hesap(){
       ${e?`<div class="stmt"><div class="row"><span>Ekstre ${fd(e.lc)}: <b>${tl(e.stmt)}</b></span><span class="mute">Son ödeme ${fd(e.due)}</span></div>
         <div class="row"><span class="${e.late?'out':e.rem?'':'in'}">${e.rem?`${e.late?icon('alert','s')+' ':''}Kalan ${tl(e.rem)}${e.late?' · gecikmiş':''}`:`${icon('check','s')} Ekstre ödendi`}</span>${e.rem?`<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button>`:''}</div>
         <div class="mute">Dönem içi harcama: ${tl(e.donem)} · Sonraki ekstre (${fd(e.nc)}): ${tl(e.sonraki)}</div></div>`
-      :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')
+      :k?'<div class="mute">Ekstre için kesim günü girin (karta dokunun).</div>':''}</div>`}).join('')+'</div>'
     +(S.accounts.length?'':'<div class="card mute empty">Henüz hesap yok. Nakit, banka veya kartınızı ekleyerek başlayın.</div>')
     +`<button class="btn add" data-act="newacc">${icon('plus')}Hesap ekle</button>`;
 }
@@ -411,7 +459,7 @@ function syncCard(){
   <div id="sform-st" class="mute" style="margin-top:6px"></div><button class="btn" type="submit">Bağlan</button></form></div>`}
 function ayar(){
   const B=S.budgets||{};
-  return `<h1>Ayarlar</h1>${syncCard()}<div class="card"><b class="ftitle">Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
+  return `<h1>Ayarlar</h1><div class="acols">${syncCard()}<div class="card"><b class="ftitle">Kategoriler</b><div class="mute">Silinen kategorideki eski işlemler olduğu gibi kalır.</div>
   ${['gider','gelir'].map(t=>`<label>${t==='gider'?'Gider':'Gelir'}</label>
     <div class="chips">${KAT(t).map(c=>`<span class="cat">${esc(c)}<button data-delcat="${esc(c)}" data-ct="${t}" aria-label="${esc(c)} sil">${icon('x','s')}</button></span>`).join('')}</div>
     <div class="row" style="margin-top:8px"><input id="newcat-${t}" maxlength="24" aria-label="Yeni ${t} kategorisi" placeholder="${t==='gider'?'Örn. Elektrik, Su, İnternet':'Örn. Kira geliri'}" style="flex:1"><button class="mini" data-addcat="${t}">Ekle</button></div>`).join('')}</div>
@@ -423,7 +471,7 @@ function ayar(){
   <button class="btn alt" data-act="import">Yedekten içe aktar</button>
   <input type="file" id="file" accept="application/json" hidden></div>
   <div class="card"><b class="ftitle">Sıfırla</b><div class="mute">Tüm hesaplar, işlemler, tekrar edenler ve bütçeler silinir; kategoriler varsayılana döner.${SY.cfg?' Senkron açık: diğer cihazlar da sıfırlanır.':''} Önce yedek alın.</div>
-  <button class="btn alt" data-act="reset">Tüm verileri sıfırla</button></div>`;
+  <button class="btn alt" data-act="reset">Tüm verileri sıfırla</button></div></div>`;
 }
 
 /* --- formlar --- */
@@ -568,7 +616,7 @@ document.addEventListener('click',async e=>{
     S.cats[d.ct]=L.filter(c=>c!==d.delcat);if(d.ct==='gider')delete S.budgets[d.delcat];await save();render();return}
   if(d.pay)return openPay(d.pay,Number(d.amt));
   if(d.sign){$('#form [name=sign]').value=d.sign;el.parentNode.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b===el);b.setAttribute('aria-pressed',b===el)});return}
-  if(el.id==='fab')return d.act||(tab==='hesap'?openAcc():openTx());
+  if(el.id==='fab'||d.act==='add')return tab==='hesap'?openAcc():openTx();
   if(d.tab){tab=d.tab;render()}
   else if(d.m){const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+Number(d.m),1)).toISOString().slice(0,7);render()}
   else if(d.ftype){F.type=d.ftype;F.acc=$('#form [name=acc]')?.value;drawTx()}
