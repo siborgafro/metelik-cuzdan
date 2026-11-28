@@ -451,7 +451,7 @@ function ozet(){
     ...S.planned.filter(p=>!p.done&&p.date.slice(0,7)<=month).map(p=>({kind:'plan',p,name:p.name,sub:p.to&&acc(p.to)?'→ '+acc(p.to).name:p.cat,date:p.date,amount:p.amount,done:false}))]
     .sort((x,y)=>x.date.localeCompare(y.date));
   /* masaüstünde: üstte varlık | ay sonucu, altta solda ödemeler + tekrar edenler, sağda kategoriler. Telefonda sıra aynı, tek sütun */
-  const sol=odeme.length||plan.length||bek.length||rt.length;
+  const sol=true;
   return `<div class="brand"><img src="icon.svg" alt=""><h1>Metelik Cüzdan</h1></div>${monthBar()}
   <div class="cols top"><section class="card hero" aria-label="Varlık ve borç"><div class="mute">Varlık · nakit + banka</div><div class="big">${tl(varlik)}</div>
     <div class="split"><div><span class="mute">Kart borcu</span><b class="${borc<0?'out':''}">${tl(-borc)}</b></div><div><span class="mute">Gelecek taksit</span><b>${tl(gelecek)}</b></div></div>
@@ -465,10 +465,11 @@ function ozet(){
   ${odeme.length?'<h2>Kart ödemeleri</h2><div class="list">'+odeme.map(({a,e})=>`<div class="item"><div class="l"><b>${esc(a.name)}</b>
     <div class="mute ${e.late?'out':''}">${e.late?icon('alert','s')+' ':''}Son ödeme ${fd(e.due)} · ${e.late?'gecikmiş':e.left===0?'bugün':e.left+' gün kaldı'}</div></div>
     <div class="r"><span class="amt out">${tl(e.rem)}</span>&nbsp;<button class="mini" data-pay="${a.id}" data-amt="${e.rem}">Öde</button></div></div>`).join('')+'</div>':''}
-  ${plan.length?'<h2>Planlı ödemeler</h2><div class="list">'+plan.map(x=>{const late=!x.done&&x.date<today();
+  <h2>Planlı ödemeler</h2>${plan.length?'<div class="list">'+plan.map(x=>{const late=!x.done&&x.date<today();
     return `<div class="item"><div class="l"><b>${esc(x.name)}</b><div class="mute ${late?'out':''}">${late?icon('alert','s')+' ':''}${esc(x.sub)} · ${fd(x.date)}${late?' · gecikmiş':''}</div></div>
     <div class="r"><span class="amt ${x.done?'':'out'}">${tl(x.amount)}</span>&nbsp;${x.done?`<span class="chip in">${icon('check','s')}Ödendi</span>`
-      :x.kind==='kredi'?`<button class="mini" data-pay="${x.a.id}" data-amt="${x.amount}">Öde</button>`:`<button class="mini" data-planpay="${x.p.id}">Öde</button>`}</div></div>`}).join('')+'</div>':''}
+      :x.kind==='kredi'?`<button class="mini" data-pay="${x.a.id}" data-amt="${x.amount}">Öde</button>`:`<button class="mini" data-planpay="${x.p.id}">Öde</button>`}</div></div>`}).join('')+'</div>':'<div class="card mute empty">Bu ay planlı ödeme yok.</div>'}
+  <button class="btn alt add" data-act="newplan">${icon('plus')}Planlı ödeme ekle</button>
   ${bek.length?'<h2>Ödeme bekleyen</h2><div class="list">'+bek.map(({r,mo,date})=>`<div class="item" style="flex-wrap:wrap"><div class="l"><b>${esc(r.name)}</b>
     <div class="mute">${esc(r.cat)} · ${fd(date)}</div></div><span class="amt out">${tl(r.amount)}</span>
     <div class="row" style="justify-content:flex-end;width:100%"><button class="mini alt" data-recskip="${r.id}" data-mo="${mo}">Bu ay yok</button><button class="mini" data-recpay="${r.id}" data-mo="${mo}">Öde</button></div></div>`).join('')+'</div>':''}
