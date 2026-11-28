@@ -59,6 +59,9 @@ Tek bir `index.html` dosyası: çerçeve ya da derleme adımı yok. Çevrimdış
 servis çalışanı (`sw.js`) kullanır ve GitHub Pages'te yayınlanır. Kod değiştiğinde
 `sw.js` içindeki önbellek sürümü artırılır, böylece açık uygulamalar yeni sürümü alır.
 
+Sürüm sürüm gelişim: [CHANGELOG.md](CHANGELOG.md) ve
+[Releases](https://github.com/siborgafro/metelik-cuzdan/releases).
+
 ## English
 
 Metelik Cüzdan is a personal finance tracker in Turkish that runs in the browser and
